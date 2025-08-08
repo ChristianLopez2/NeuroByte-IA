@@ -1,2 +1,0 @@
-# NeuroByte-IA
-HackIAthon
