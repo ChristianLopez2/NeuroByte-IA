@@ -16,6 +16,25 @@
       <input type="text" id="user-input" placeholder="Escribe tu pregunta..." />
       <button id="send-button">Enviar</button>
     </div>
+
+    <h3 style="margin-top:18px;">Cargar PDFs para análisis</h3>
+    <div id="pdf-uploader" class="uploader">
+      <div class="row">
+        <input id="pdf-files" type="file" accept="application/pdf" multiple />
+        <button id="btn-upload">Subir</button>
+        <progress id="upload-progress" value="0" max="100" style="display:none;"></progress>
+        <span id="upload-status" class="muted tiny"></span>
+      </div>
+      <div class="muted tiny" style="margin-top:6px;">
+        Arrastra archivos PDF aquí.
+      </div>
+    </div>
+
+    <div class="row" style="margin:8px 0;">
+      <h4 style="margin:0;">📂 PDFs guardados</h4>
+      <button id="btn-refresh" title="Actualizar lista">Actualizar</button>
+    </div>
+    <div id="pdf-list" class="list muted tiny">No hay archivos aún. Sube alguno</div>
   </div>
 
   <script>
@@ -49,6 +68,109 @@
           $('#send-button').click();
         }
       });
+
+      const $uploader = $('#pdf-uploader');
+      const $fileInput = $('#pdf-files');
+      const $btnUpload = $('#btn-upload');
+      const $progress = $('#upload-progress');
+      const $status = $('#upload-status');
+      const $list = $('#pdf-list');
+      const $btnRefresh = $('#btn-refresh');
+
+      function refreshList() {
+        $list.text('Cargando...');
+        $.get('/api/list-pdf', function (data) {
+          if (!data || !data.files || data.files.length === 0) {
+            $list.html('No hay archivos aún. Sube alguno 👆');
+            return;
+          }
+          const items = data.files.map(f => {
+            const size = humanSize(f.size_bytes || 0);
+            const link = `<a href="${f.public_url}" target="_blank" rel="noopener">${escapeHtml(f.filename)}</a>`;
+            return `<div class="chip">${link} · ${size}</div>`;
+          }).join('');
+          $list.html(items);
+        }).fail(function () {
+          $list.html('⚠️ No se pudo cargar la lista.');
+        });
+      }
+
+      function uploadFiles(files) {
+        if (!files || files.length === 0) return;
+        const formData = new FormData();
+        for (const f of files) { formData.append('files', f); }
+
+        $progress.val(0).show();
+        $status.text('Subiendo...');
+        $btnUpload.prop('disabled', true);
+
+        $.ajax({
+          url: '/api/upload-pdf',
+          method: 'POST',
+          data: formData,
+          processData: false,
+          contentType: false,
+          xhr: function () {
+            const xhr = new window.XMLHttpRequest();
+            xhr.upload.addEventListener('progress', function (e) {
+              if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 100);
+                $progress.val(percent);
+              }
+            });
+            return xhr;
+          },
+          success: function (resp) {
+            $status.text('✅ Subida completa');
+            setTimeout(() => { $status.text(''); }, 1500);
+            refreshList();
+          },
+          error: function (xhr) {
+            const msg = (xhr.responseJSON && xhr.responseJSON.detail) ? xhr.responseJSON.detail : 'Error al subir';
+            $status.text('⚠️ ' + msg);
+          },
+          complete: function () {
+            $btnUpload.prop('disabled', false);
+            $progress.hide();
+            $fileInput.val('');
+          }
+        });
+      }
+
+      $btnUpload.on('click', function () {
+        const files = $fileInput[0].files;
+        uploadFiles(files);
+      });
+
+      // Drag & drop
+      $uploader.on('dragover', function (e) {
+        e.preventDefault(); e.stopPropagation(); $uploader.addClass('dragover');
+      });
+      $uploader.on('dragleave dragend', function (e) {
+        e.preventDefault(); e.stopPropagation(); $uploader.removeClass('dragover');
+      });
+      $uploader.on('drop', function (e) {
+        e.preventDefault(); e.stopPropagation(); $uploader.removeClass('dragover');
+        const dt = e.originalEvent.dataTransfer;
+        if (dt && dt.files && dt.files.length) uploadFiles(dt.files);
+      });
+
+      $btnRefresh.on('click', refreshList);
+      refreshList(); // inicial
+
+            // Utils
+      function humanSize(bytes) {
+        const units = ['B','KB','MB','GB','TB'];
+        let i = 0, num = Math.max(bytes, 0);
+        while (num >= 1024 && i < units.length - 1) { num /= 1024; i++; }
+        return `${num.toFixed(num >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+      }
+      function escapeHtml(str) {
+        return String(str).replace(/[&<>"'`=\/]/g, function (s) {
+          return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[s]);
+        });
+      }
+
     });
   </script>
 </body>

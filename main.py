@@ -14,6 +14,10 @@ from langchain.chains import RetrievalQA
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi import UploadFile, File, HTTPException
+from starlette.status import HTTP_400_BAD_REQUEST
+from pathlib import Path
+import shutil
 
 app = FastAPI()
 
@@ -71,3 +75,51 @@ async def chat_endpoint(request: ChatRequest):
 @app.get("/", response_class=HTMLResponse)
 async def serve_chat(request: Request):
     return templates.TemplateResponse("chatbot.html", {"request": request})
+
+# === Subidas de archivos (PDF) ===
+UPLOAD_DIR = Path("./uploads/pdf")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# Servir archivos subidos como estáticos
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+@app.post("/api/upload-pdf")
+async def upload_pdf(files: list[UploadFile] = File(...)):
+    if not files:
+        raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail="No se recibieron archivos.")
+
+    saved = []
+    for f in files:
+        # Validar tipo de archivo: permite 'application/pdf'
+        if f.content_type not in ("application/pdf", "application/octet-stream"):
+            raise HTTPException(
+                status_code=HTTP_400_BAD_REQUEST,
+                detail=f"El archivo '{f.filename}' no es un PDF válido."
+            )
+
+        safe_name = Path(f.filename).name  # evita rutas raras
+        dest_path = UPLOAD_DIR / safe_name
+
+        with dest_path.open("wb") as out_file:
+            shutil.copyfileobj(f.file, out_file)
+
+        saved.append({
+            "filename": safe_name,
+            "disk_path": str(dest_path.resolve()),
+            "public_url": f"/uploads/pdf/{safe_name}"
+        })
+
+    return {"ok": True, "files": saved}
+
+@app.get("/api/list-pdf")
+async def list_pdf():
+    files = []
+    for p in UPLOAD_DIR.glob("*.pdf"):
+        files.append({
+            "filename": p.name,
+            "public_url": f"/uploads/pdf/{p.name}",
+            "disk_path": str(p.resolve()),
+            "size_bytes": p.stat().st_size
+        })
+    return {"count": len(files), "files": files}
+
