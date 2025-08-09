@@ -1,0 +1,98 @@
+CURSO
+Inteligencia Artificial en Azure
+HORARIO
+Sábados y Domingos de 8AM a 11AM
+FECHA DE INICIO
+Sábado 20 de Setiembre del 2024
+TEMARIO
+MÓDULO 1: CIENCIA DE DATOS SOBRE AZURE
+Ciencia de Datos para el soporte a la toma de decisiones en la empresa
+Machine Learning para el descubrimiento de patrones lineales
+Deep Learning para el descubrimiento de patrones no lineales
+Inteligencia Artificial para emular el comportamiento humano
+Ciencia de Datos sobre entornos de Big Data
+Infraestructura basada en clústers de servidores
+Infraestructura basada en GPU
+Ecosistema de Ciencia de Datos sobre Azure
+Preparación de entorno de Ciencia de Datos sobre Azure
+Subida de datos sobre Azure
+Configuración de un entorno de desarrollo en Azure Machine Learning
+Importación y limpieza de datos en Azure Machine Learning
+Exploración de datos y estadísticas descriptivas
+Estrategias de manejo de datos desequilibrados
+MÓDULO 2: ALGORITMOS DE MACHINE LEARNING SOBRE AZURE
+Machine Learning para el descubrimiento de patrones lineales
+Selección de algoritmos y técnicas de modelado de Machine Learning
+Desarrollo de flujos de trabajo de Machine Learning en Azure
+Evaluación y validación de modelos de Machine Learning
+Aprendizaje no supervisado sobre Azure
+Algoritmos de Segmentación y clusterización sobre Azure
+Aprendizaje supervisado sobre Azure
+Etiquetado de registros para aprendizaje supervisado
+Algoritmos de predicciones numéricas sobre Azure
+Algoritmos de predicciones categóricas sobre Azure
+MÓDULO 3: ALGORITMOS DE DEEP LEARNING SOBRE AZURE
+El problema del descubrimiento de patrones no lineales
+Deep Learning para el descubrimiento de patrones no lineales
+Perceptrón como “regresión lineal”
+Algoritmos de Backpropagation
+Selección de algoritmos y técnicas de modelado de Deep Learning
+Desarrollo de flujos de trabajo de Deep Learning en Azure
+Evaluación y validación de modelos de Deep Learning
+Redes Neuronales para el descubrimiento de patrones no lineales
+Algoritmo de Redes Neuronales para predicciones sobre Azure
+Funciones de activación para la no-linealidad
+Algoritmo de Redes Neuronales para predicciones categóricas sobre Azure
+MÓDULO 4: HYPER-PARAMETRIZACIÓN DE MODELOS ANALÍTICOS
+Estrategia de Calibración de selección de algoritmos
+Estrategia de Calibración de parámetros
+Estrategia de Validación Cruzada de algoritmos
+Optimización de hiperparámetros para mejorar el rendimiento del modelo
+Uso de técnicas de ajuste automático de hiperparámetros en Azure
+AutoML para la automatización de la calibración en Azure
+Registro de experimentos y seguimiento de modelos en Azure Machine Learning
+Control de versiones de modelos y flujos de trabajo
+MÓDULO 5: INTELIGENCIA ARTIFICIAL - SERVICIOS COGNITIVOS
+Conceptos generales de Inteligencia Artificial
+Inteligencia Artificial aplicada a la empresa
+Implementación de Soluciones de Inteligencia Artificial
+Servicios de Inteligencia Artificial en la nube
+Azure Cognitive Services para IA en Azure
+Visión computacional y reconocimiento de imágenes
+Computer Vision aplicada sobre Azure
+Identificación y análisis de rostros
+Face API aplicada sobre Azure
+Personalización de modelos de visión computacional
+Custom Vision aplicado sobre Azure
+MÓDULO 6: INTELIGENCIA ARTIFICIAL - MODELOS DE LENGUAJE NATURAL
+Tendencias empresariales sobre Inteligencia Artificial
+Inteligencia Articial aplicada a Chatbots
+Procesamiento de voz y audios
+Asistentes de reconocimiento de voz
+Speech Service aplicado sobre Azure
+Procesamiento del lenguaje natural (NPL)
+Análisis de sentimientos sobre textos
+Extracción de entidades en el lenguaje
+Language Service aplicado sobre Azure
+Reconocimiento de idiomas
+Traducción de textos entre idiomas
+Translator aplicado sobre Azure
+MÓDULO 7: MODELOS AVANZADOS DE INTELIGENCIA ARTIFICIAL
+Interacción Conversacional
+Automatización de atención al cliente
+Asistentes virtuales para la automatización de tareas humanas
+Consideraciones éticas de la Inteligencia Artificial
+Bot Services aplicado sobre Azure
+Limitaciones empresariales de la Inteligencia Artificial
+Tendencia de IA: GenAI en la empresa
+Aplicaciones emergentes: ¿ChatGPT en la empresa?
+MÓDULO 8: DESPLIEGUE DE MODELOS SOBRE AZURE
+Estrategia de despliegue de modelos
+Arquitectura de modelos sobre Páginas Web
+Arquitectura de modelos sobre APIs
+Arquitectura de modelos sobre Micro-Servicios
+Empaquetado y despliegue de modelos en Azure
+Creación de servicios web de Machine Learning
+Escalado automático y monitoreo de modelos en producción
+Buenas prácticas de seguridad y acceso a los modelos
+Integración de modelos con servicios de Azure

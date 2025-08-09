@@ -1,0 +1,97 @@
+CURSO
+Inteligencia Artificial en AWS
+HORARIO
+Martes y Jueves de 6:30 PM a 9:30 PM
+FECHA DE INICIO
+Martes 24 de Setiembre del 2024
+TEMARIO
+MÓDULO 1: CIENCIA DE DATOS SOBRE AWS
+Ciencia de Datos para el soporte a la toma de decisiones en la empresa
+Machine Learning para el descubrimiento de patrones lineales
+Deep Learning para el descubrimiento de patrones no lineales
+Inteligencia Artificial para emular el comportamiento humano
+Ciencia de Datos sobre entornos de Big Data
+Infraestructura basada en clústers de servidores
+Infraestructura basada en GPU
+Ecosistema de Ciencia de Datos sobre AWS
+Preparación de entorno de Ciencia de Datos sobre AWS
+Subida de datos sobre AWS
+Configuración de un entorno de desarrollo en Sage Maker
+Importación y limpieza de datos en Sage Maker
+Exploración de datos y estadísticas descriptivas
+Estrategias de manejo de datos desequilibrados
+MÓDULO 2: ALGORITMOS DE MACHINE LEARNING SOBRE AWS
+Machine Learning para el descubrimiento de patrones lineales
+Selección de algoritmos y técnicas de modelado de Machine Learning
+Desarrollo de flujos de trabajo de Machine Learning en AWS
+Evaluación y validación de modelos de Machine Learning
+Aprendizaje no supervisado sobre AWS
+Algoritmos de Segmentación y clusterización sobre AWS
+Aprendizaje supervisado sobre AWS
+Etiquetado de registros para aprendizaje supervisado
+Algoritmos de predicciones numéricas sobre AWS
+Algoritmos de predicciones categóricas sobre AWS
+Despliegue de modelos sobre AWS
+MÓDULO 3: ALGORITMOS DE DEEP LEARNING SOBRE AWS
+El problema del descubrimiento de patrones no lineales
+Deep Learning para el descubrimiento de patrones no lineales
+Perceptrón como “regresión lineal”
+Algoritmos de Backpropagation
+Selección de algoritmos y técnicas de modelado de Deep Learning
+Desarrollo de flujos de trabajo de Deep Learning en AWS
+Evaluación y validación de modelos de Deep Learning
+Redes Neuronales para el descubrimiento de patrones no lineales
+Algoritmo de Redes Neuronales para predicciones sobre AWS
+Funciones de activación para la no-linealidad
+Algoritmo de Redes Neuronales para predicciones categóricas sobre AWS
+MÓDULO 4: HYPER-PARAMETRIZACIÓN DE MODELOS ANALÍTICOS
+Estrategia de Calibración de selección de algoritmos
+Estrategia de Calibración de parámetros
+Estrategia de Validación Cruzada de algoritmos
+Optimización de hiperparámetros para mejorar el rendimiento del modelo
+Uso de técnicas de ajuste automático de hiperparámetros en AWS
+Autopilot para la automatización de la calibración en AWS
+Registro de experimentos y seguimiento de modelos en Sage Maker
+Control de versiones de modelos y flujos de trabajo
+MÓDULO 5: INTELIGENCIA ARTIFICIAL - VISIÓN ARTIFICIAL
+Conceptos generales de Inteligencia Artificial
+Inteligencia Artificial aplicada a la empresa
+Implementación de Soluciones de Inteligencia Artificial
+Servicios de Inteligencia Artificial en la nube
+Visión computacional y reconocimiento de imágenes
+Amazon Rekognition aplicada sobre AWS
+Detección de etiquetas sobre objetos visuales
+Análisis facial y de rostros
+Detección de texto en imágenes
+MÓDULO 6: INTELIGENCIA ARTIFICIAL - MODELOS DE LENGUAJE NATURAL
+Tendencias empresariales sobre Inteligencia Artificial
+Inteligencia Articial aplicada a Chatbots
+Procesamiento de voz y audios
+Asistentes de reconocimiento de voz
+Amazon Transcribe aplicado sobre AWS
+Procesamiento del lenguaje natural (NPL)
+Análisis de sentimientos sobre textos
+Extracción de entidades en el lenguaje
+Amazon Comprehend aplicado sobre AWS
+Reconocimiento de idiomas
+Traducción de textos entre idiomas
+Amazon Translate aplicado sobre AWS
+MÓDULO 7: MODELOS AVANZADOS DE INTELIGENCIA ARTIFICIAL
+Interacción Conversacional
+Automatización de atención al cliente
+Asistentes virtuales para la automatización de tareas humanas
+Consideraciones éticas de la Inteligencia Artificial
+Amazon Lex aplicado sobre AWS
+Limitaciones empresariales de la Inteligencia Artificial
+Tendencia de IA: GenAI en la empresa
+Aplicaciones emergentes: ¿ChatGPT en la empresa?
+MÓDULO 8: INTELIGENCIA ARTIFICIAL GENERATIVA
+Servicios de IA Generativa en AWS
+Habilitación de modelos fundacionales de texto
+Habilitación de modelos fundacionales de imágenes
+Modelos fundacionales disponibles en Amazon Bedrock
+Selección del mejor modelo según el caso de negocio
+Uso de modelos fundacionales de Chatbots para generación de conversaciones
+Uso de modelos fundacionales de Texto para generación de contenido
+Uso de modelos fundacionales Visuales para generación de imágenes
+Formato JSON como estándar de comunicación entres IAs
