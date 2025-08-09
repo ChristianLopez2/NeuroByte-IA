@@ -542,6 +542,7 @@ async def list_pdf():
     return {"count": len(files), "files": files}
 
 from fastapi.staticfiles import StaticFiles
+app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/", StaticFiles(directory="templates", html=True), name="front")
 
 def current_upload_sources() -> set[str]:

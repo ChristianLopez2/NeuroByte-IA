@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <!-- Usa tu CSS principal -->
   <link rel="stylesheet" href="/static/styles.css">
+  <link rel="icon" href="/static/favicon.png" type="image/png">
 </head>
 <body>
 <div class="chat-shell">
@@ -36,9 +37,11 @@
     </div>
   </div>
 
+
 <script>
 // ===== Config =====
 const API_BASE = localStorage.getItem("API_BASE") || "http://127.0.0.1:8000";
+
 
 // ===== Helpers UI =====
 const $chat = document.getElementById("chat");
