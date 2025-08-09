@@ -30,6 +30,7 @@ app.add_middleware(
         "https://neurobyte-ai.com",
         "https://app.neurobyte-ai.com"
     ],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"]
 )

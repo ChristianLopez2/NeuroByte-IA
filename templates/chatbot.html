@@ -2,31 +2,91 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- 🔹 Necesario para responsive -->
   <title>Chatbot RAG 🤖</title>
   <link rel="stylesheet" href="/static/style.css">
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    .chat-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      max-width: 100%;
+    }
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0; /* 🔹 Evita que flex hijos crezcan más de lo debido */
+    }
+    .chat-box {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+    }
+    .chat-input-container {
+      display: flex;
+      gap: 8px;
+      padding: 10px;
+      border-top: 1px solid rgba(148,163,184,.18);
+      background: var(--panel, rgba(10,15,25,.75));
+    }
+    #user-input {
+      flex: 1;
+      min-width: 0; /* 🔹 Importante en flex para que el input no se rompa */
+    }
+    /* 🔹 Ajustes para pantallas pequeñas */
+    @media (max-width: 600px) {
+      .chat-topbar {
+        font-size: 14px;
+        padding: 10px;
+        text-align: center;
+      }
+      #send-button {
+        padding: 10px;
+        font-size: 14px;
+      }
+      #user-input {
+        font-size: 14px;
+        padding: 10px;
+      }
+    }
+  </style>
 </head>
 <body>
-  <div class="chat-container">
-    <div class="chat-header">Asistente IA RAG 📚</div>
-    <div class="chat-box" id="chat-box">
-      <div class="bot-message">👋 Hola, soy tu IA entrenada con archivos de texto. ¿En qué puedo ayudarte?</div>
+  <div class="chat-shell">
+    <div class="chat-topbar">
+      <div class="brand">Asistente IA RAG 📚</div>
     </div>
-    <div class="chat-input-container">
-      <input type="text" id="user-input" placeholder="Escribe tu pregunta..." />
-      <button id="send-button">Enviar</button>
+
+    <div class="chat-container">
+      <div class="chat-box" id="chat-box">
+        <div class="bot-message">👋 Hola, soy tu IA entrenada con archivos de texto. ¿En qué puedo ayudarte?</div>
+      </div>
+      <div class="chat-input-container">
+        <input type="text" id="user-input" placeholder="Escribe tu pregunta..." autofocus>
+        <button id="send-button">Enviar</button>
+      </div>
     </div>
   </div>
 
   <script>
     $(document).ready(function () {
+      const $box = $('#chat-box');
+      const scrollDown = () => $box.scrollTop($box[0].scrollHeight);
+
       $('#send-button').click(function () {
         const userInput = $('#user-input').val().trim();
         if (userInput === '') return;
 
-        $('#chat-box').append(`<div class="user-message">${userInput}</div>`);
+        $box.append(`<div class="user-message">${userInput}</div>`);
         $('#user-input').val('');
-        $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+        scrollDown();
 
         $.ajax({
           url: '/api/chat',
@@ -34,12 +94,12 @@
           contentType: 'application/json',
           data: JSON.stringify({ query: userInput }),
           success: function (response) {
-            $('#chat-box').append(`<div class="bot-message">${response.result}</div>`);
-            $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+            $box.append(`<div class="bot-message">${response.result}</div>`);
+            scrollDown();
           },
           error: function () {
-            $('#chat-box').append(`<div class="bot-message error">⚠️ Error al conectar con la IA.</div>`);
-            $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+            $box.append(`<div class="bot-message error">⚠️ Error al conectar con la IA.</div>`);
+            scrollDown();
           }
         });
       });
