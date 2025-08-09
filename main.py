@@ -26,9 +26,13 @@ templates = Jinja2Templates(directory="templates")
 # Habilitar CORS para permitir llamadas desde el frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[
+        "https://neurobyte-ai.com",
+        "https://www.neurobyte-ai.com"
+    ],  # puedes usar ["*"] para pruebas rápidas
+    allow_credentials=False,
+    allow_methods=["*"],   # así incluye OPTIONS para el preflight
+    allow_headers=["*"],   # permite todos los headers que envíe el front
 )
 
 # MODELO DE PETICIÓN
