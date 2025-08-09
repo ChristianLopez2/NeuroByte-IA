@@ -1,47 +1,40 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8" />
-<title>RAG Licitaciones – Front</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<style>
-  :root { --b:#eee; --t:#222; --muted:#666; }
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color:var(--t); margin:24px; }
-  h1 { margin: 0 0 12px; }
-  .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .chat { border:1px solid var(--b); border-radius:10px; padding:12px; height:340px; overflow:auto; }
-  .msg{ padding:8px 10px; border-radius:8px; margin:6px 0; max-width:100%; white-space:pre-wrap; word-wrap:break-word; }
-  .user{ background:#e8f3ff; align-self:flex-end; }
-  .bot{ background:#f6f6f6; }
-  .tiny{ color:var(--muted); font-size:12px; }
-  button{ cursor:pointer; }
-  pre{ white-space:pre-wrap; word-wrap:break-word; margin:0; }
-  .chip{ display:inline-block; padding:4px 8px; border:1px solid var(--b); border-radius:16px; margin:4px; }
-  input[type="text"]{ padding:8px; border:1px solid var(--b); border-radius:8px; min-width:200px; }
-</style>
+  <meta charset="utf-8" />
+  <title>RAG Licitaciones – Front</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Usa tu CSS principal -->
+  <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-<h1>Asistente IA RAG 📚</h1>
+<div class="chat-shell">
+    <div class="chat-topbar">
+      <div class="brand">Asistente IA RAG 📚</div>
+    </div>
 
-<section>
-  <h2>Chat / Análisis</h2>
-  <div class="row" style="margin-bottom:8px;">
-    <input id="q" type="text" placeholder="Pregunta o instrucciones..." style="flex:1; min-width:280px;" />
-    <button id="ask">Analizar</button>
-  </div>
-  <div id="chat" class="chat"></div>
-</section>
+    <div class="chat-container">
+      <section>
+        <h2 class="section-title">Chat / Análisis</h2>
+        <div class="row">
+          <input id="q" class="input" type="text" placeholder="Pregunta o instrucciones..." />
+          <button id="ask" class="btn">Analizar</button>
+        </div>
+        <div id="chat" class="chat-box"></div>
+      </section>
 
-<section style="margin-top:24px;">
-  <h2>Subir PDFs (oferente)</h2>
-  <div class="row" style="margin-bottom:8px;">
-    <input id="files" type="file" accept="application/pdf" multiple />
-    <button id="upload">Subir</button>
-    <button id="refresh">Actualizar lista</button>
-    <span id="status" class="tiny"></span>
+      <section class="u-mt">
+        <h2 class="section-title">Subir PDFs (oferente)</h2>
+        <div class="row">
+          <input id="files" type="file" accept="application/pdf" multiple />
+          <button id="upload" class="btn">Subir</button>
+          <button id="refresh" class="btn ghost">Actualizar lista</button>
+          <span id="status" class="tiny"></span>
+        </div>
+        <div id="list" class="tiny">No hay archivos aún.</div>
+      </section>
+    </div>
   </div>
-  <div id="list" class="tiny">No hay archivos aún.</div>
-</section>
 
 <script>
 // ===== Config =====
