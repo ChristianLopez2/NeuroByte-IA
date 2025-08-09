@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Chatbot RAG 🤖</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-header">Asistente IA RAG 📚</div>
+    <div class="chat-box" id="chat-box">
+      <div class="bot-message">👋 Hola, soy tu IA entrenada con archivos de texto. ¿En qué puedo ayudarte?</div>
+    </div>
+    <div class="chat-input-container">
+      <input type="text" id="user-input" placeholder="Escribe tu pregunta..." />
+      <button id="send-button">Enviar</button>
+    </div>
+  </div>
+
+  <script>
+    $(document).ready(function () {
+      $('#send-button').click(function () {
+        const userInput = $('#user-input').val().trim();
+        if (userInput === '') return;
+
+        $('#chat-box').append(`<div class="user-message">${userInput}</div>`);
+        $('#user-input').val('');
+        $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+
+        $.ajax({
+          url: '/api/chat',
+          method: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify({ query: userInput }),
+          success: function (response) {
+            $('#chat-box').append(`<div class="bot-message">${response.result}</div>`);
+            $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+          },
+          error: function () {
+            $('#chat-box').append(`<div class="bot-message error">⚠️ Error al conectar con la IA.</div>`);
+            $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+          }
+        });
+      });
+
+      $('#user-input').on('keydown', function (e) {
+        if (e.key === 'Enter') {
+          $('#send-button').click();
+        }
+      });
+    });
+  </script>
+</body>
+</html>
