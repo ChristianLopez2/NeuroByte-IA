@@ -316,6 +316,7 @@ async def analyze_against_base(
 # =========================
 class ChatRequest(BaseModel):
     query: str
+    focus_upload: Optional[str] = None   # permitir que el front lo especifique si quiere
 
 class AnalyzeRequest(BaseModel):
     query: str
@@ -329,10 +330,34 @@ def startup_index_base():
 
 @app.post("/api/chat")
 async def chat_endpoint(req: ChatRequest):
-    retriever = make_retriever(S.BASE_COLLECTION)
-    qa = build_rag_qa(retriever)
-    res = qa.invoke(req.query)
-    return {"result": res["result"]}
+    # 1) Detecta si la pregunta menciona un PDF subido (p.ej., "oferta01")
+    focus = req.focus_upload or detect_upload_match(req.query)
+
+    # 2) Construye contexto híbrido (base + uploads); si hay focus, filtra por ese archivo
+    context = build_hybrid_context(req.query, focus_upload=focus, k_base=8, k_up=8)
+
+    # 3) Prompt orientado a "mejoras" si hay un archivo de oferente en foco
+    llm = make_llm(temperature=0.2)
+    intent = (
+        "Si el usuario menciona un documento del oferente, da sugerencias claras y accionables para que cumpla con los pliegos."
+        " Cuando hagas referencia a un documento, usa EXCLUSIVAMENTE el nombre que aparece tras '### DOC:'"
+        " (sin extensión ni colección)."
+        " Ejemplos válidos: PLIEGO-SIE-BYS-V-2023-001, FORMULARIO-SIE-BYS-V-2023-001."
+        " Evita textos como '[SOURCE: ...]' o '(licitaciones_base)'."
+    )
+    focus_note = f"\nDocumento en foco: {Path(focus).stem}" if focus else ""
+    prompt = (
+        f"Eres un asistente experto en licitaciones. {intent}\n"
+        f"{focus_note}\n\n"
+        f"Pregunta del usuario:\n{req.query}\n\n"
+        f"CONTEXTO RAG (base + oferente):\n{context[:150000]}\n\n"
+        "Responde en español, con viñetas y pasos concretos cuando pidas cambios."
+        "Cuando cites documentos en 'evidencia' o 'diferencias', utiliza únicamente el nombre tras '### DOC:' (sin .pdf ni colección); por ejemplo: PLIEGO-SIE-BYS-V-2023-001."
+    )
+
+    resp = await llm.ainvoke(prompt)
+    return {"result": resp.content, "focus_upload": focus}
+
 
 @app.post("/api/upload-pdf")
 async def upload_pdf(files: List[UploadFile] = File(...)):
@@ -368,3 +393,42 @@ async def analyze(req: AnalyzeRequest):
 
 from fastapi.staticfiles import StaticFiles
 app.mount("/", StaticFiles(directory="templates", html=True), name="front")
+
+# === Helpers para detección de archivo y construcción de contexto ===
+def detect_upload_match(query: str) -> Optional[str]:
+    """Detecta si la consulta menciona el nombre (stem) de algún PDF subido."""
+    q = (query or "").lower()
+    for p in S.UPLOAD_DIR.glob("*.pdf"):
+        stem = p.stem.lower()
+        # match por nombre base (oferta01) o con extensión
+        if stem in q or p.name.lower() in q:
+            return p.name  # devolvemos el filename exacto
+    return None
+
+def build_hybrid_context(query: str, focus_upload: Optional[str] = None, k_base: int = 8, k_up: int = 8) -> str:
+    """Recupera contexto de BASE y UPLOADS; si hay focus_upload, filtra por ese archivo."""
+    base_ret = _ensure_chroma(S.BASE_COLLECTION).as_retriever(
+        search_type="mmr", search_kwargs={"k": k_base, "fetch_k": 20}
+    )
+    # filtro para Chroma (LangChain -> Chroma 'where' se pasa en search_kwargs.filter)
+    up_kwargs = {"k": k_up, "fetch_k": 20}
+    if focus_upload:
+        up_kwargs["filter"] = {"source": {"$eq": focus_upload}}
+
+    up_ret = _ensure_chroma(S.UPLOADS_COLLECTION).as_retriever(
+        search_type="mmr", search_kwargs=up_kwargs
+    )
+
+    base_docs = base_ret.get_relevant_documents(query)
+    up_docs   = up_ret.get_relevant_documents(query)
+
+    context = []
+    for d in (base_docs + up_docs):
+        src = d.metadata.get("source")
+        col = d.metadata.get("collection")
+        label = Path(src).stem
+        #context.append(f"\n### SOURCE: {src} ({col})\n{d.page_content}\n")
+        context.append(f"\n### DOC: {label}\n{d.page_content}\n")
+    return "".join(context)
+
+
