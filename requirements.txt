@@ -3,13 +3,17 @@ uvicorn
 pydantic
 starlette
 
+
 langchain
 langchain-openai
+langchain-community
 chromadb
 tiktoken  # langchain suele necesitarlo
 openai
 
+
 httpx
+
 
 PyMuPDF
 Pillow
