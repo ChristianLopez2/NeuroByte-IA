@@ -17,7 +17,7 @@ from fastapi.templating import Jinja2Templates
 
 app = FastAPI()
 
-# Archivos estáticos (CSS, JS)
+# Archivos estáticos (CSS, JS) Hola
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Motor de plantillas
