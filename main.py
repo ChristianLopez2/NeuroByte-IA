@@ -28,12 +28,19 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://neurobyte-ai.com",
-        "https://www.neurobyte-ai.com"
-    ],  # puedes usar ["*"] para pruebas rápidas
-    allow_credentials=False,
-    allow_methods=["*"],   # así incluye OPTIONS para el preflight
-    allow_headers=["*"],   # permite todos los headers que envíe el front
+        "https://app.neurobyte-ai.com"
+    ],
+    allow_methods=["*"],
+    allow_headers=["*"]
 )
+
+# Middleware para permitir que la app se cargue en iframe
+@app.middleware("http")
+async def add_iframe_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Frame-Options"] = "ALLOWALL"
+    response.headers["Content-Security-Policy"] = "frame-ancestors *"
+    return response
 
 # MODELO DE PETICIÓN
 class ChatRequest(BaseModel):
