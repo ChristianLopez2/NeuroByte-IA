@@ -103,18 +103,39 @@ async function apiUpload(path, files){
 }
 
 // ===== Events =====
-document.getElementById("ask").onclick = async ()=>{
+document.getElementById("ask").onclick = async () => {
   const query = $q.value.trim();
-  if(!query) return;
+  if (!query) return;
   addUser(query);
   $q.value = "";
-  try{
+
+  try {
     const data = await apiPost("/api/chat", { query });
+
+    // Mostrar resultado principal
     addBot(escapeHtml(data.result || "Sin respuesta 😅"));
-  }catch(e){
+
+    // Mostrar análisis global
+    if (data.analysis) {
+      const analysisStr = typeof data.analysis === "string"
+        ? data.analysis
+        : JSON.stringify(data.analysis, null, 2);
+      addBot("📊 Análisis global:\n" + escapeHtml(analysisStr));
+    }
+
+    // Mostrar análisis por oferta
+    if (data.per_offer_analysis) {
+      const perOfferStr = typeof data.per_offer_analysis === "string"
+        ? data.per_offer_analysis
+        : JSON.stringify(data.per_offer_analysis, null, 2);
+      addBot("📂 Análisis por oferta:\n" + escapeHtml(perOfferStr));
+    }
+
+  } catch (e) {
     addBot(`⚠️ Error /api/chat<br>${escapeHtml(e.message)}`);
   }
 };
+
 
 document.getElementById("analyze").onclick = async ()=>{
   const query = $q.value.trim() || "Analiza cumplimiento, riesgos y diferencias clave.";
