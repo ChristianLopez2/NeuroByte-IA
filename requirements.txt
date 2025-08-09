@@ -1,10 +1,16 @@
 fastapi
 uvicorn
+pydantic
+starlette
+
 langchain
 langchain-openai
-langchain-community
 chromadb
-tiktoken
-pymupdf
-jinja2
-pydantic
+tiktoken  # langchain suele necesitarlo
+openai
+
+httpx
+
+PyMuPDF
+Pillow
+pytesseract
