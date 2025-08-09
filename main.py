@@ -20,15 +20,14 @@ from langchain.chains import RetrievalQA
 from langchain.memory import ConversationBufferMemory
 import asyncio
 from typing import Dict, Any
+
+# ---- HTTP / RUC ----
 import httpx
 
 # ---- PDF / OCR ----
 import fitz  # PyMuPDF
 from PIL import Image
 import pytesseract
-
-# ---- HTTP cliente (RUC) ----
-import httpx
 
 # =========================
 # Settings
@@ -187,15 +186,6 @@ def index_uploaded_pdf(pdf_path: Path, collection_name: str) -> int:
 def make_llm(temperature: float = 0.1) -> ChatOpenAI:
     return ChatOpenAI(model=S.CHAT_MODEL, temperature=temperature, openai_api_key=S.OPENAI_API_KEY)
 
-def make_retriever(collection_name: str):
-    vs = _ensure_chroma(collection_name)
-    return vs.as_retriever(search_type="mmr", search_kwargs={"k": 8, "fetch_k": 20})
-
-def build_rag_qa(retriever):
-    mem = ConversationBufferMemory(memory_key="history", return_messages=True)
-    llm = make_llm(temperature=0.2)
-    return RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever, memory=mem)
-
 # =========================
 # SRI / RUC
 # =========================
@@ -334,46 +324,6 @@ def json_guard(s: str) -> Dict[str, Any]:
                 pass
     return {"resumen": s.strip()[:800], "error": "El modelo no devolvió JSON puro."}
 
-async def analyze_against_base(
-    user_notes: str,
-    ruc: Optional[str] = None,
-    extra: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
-    """
-    RAG: consulta colección BASE y UPLOADS (oferente) y genera JSON de análisis.
-    """
-    base_r = make_retriever(S.BASE_COLLECTION)
-    upld_r = make_retriever(S.UPLOADS_COLLECTION)
-
-    base_docs = base_r.get_relevant_documents(user_notes)
-    upld_docs = upld_r.get_relevant_documents(user_notes)
-
-    context = ""
-    for d in (base_docs + upld_docs):
-        src = d.metadata.get("source")
-        col = d.metadata.get("collection")
-        context += f"\n### SOURCE: {src} ({col})\n{d.page_content}\n"
-
-    ruc_obj = None
-    if ruc:
-        try:
-            ruc_obj = await fetch_ruc_info(ruc)
-        except Exception as e:
-            ruc_obj = {"error": f"Fallo consultando RUC: {e}", "habilitado": None}
-
-    llm = make_llm(temperature=0.0)
-    prompt = (
-        ANALYSIS_SYSTEM_PROMPT
-        + "\n\n# Notas del solicitante (texto libre):\n"
-        + (user_notes or "N/A")
-        + "\n\n# Información RUC (normalizada, si existe):\n"
-        + json.dumps(ruc_obj, ensure_ascii=False)
-        + "\n\n# CONTEXTO RAG (extractos de base y oferente):\n"
-        + context[:150000]
-    )
-    resp = await llm.ainvoke(prompt)
-    return json_guard(resp.content)
-
 # =========================
 # Schemas / Endpoints
 # =========================
@@ -381,19 +331,22 @@ class ChatRequest(BaseModel):
     query: str
     focus_upload: Optional[str] = None   # permitir que el front lo especifique si quiere
 
-class AnalyzeRequest(BaseModel):
-    query: str
-    ruc: Optional[str] = None
-    extra: Optional[Dict[str, Any]] = None
-
 @app.on_event("startup")
 def startup_index_base():
-    added = index_pdfs_in_dir(S.KNOWLEDGE_DIR, S.BASE_COLLECTION)
-    print(f"🔎 Base indexada: {added} chunks")
+    index_pdfs_in_dir(S.KNOWLEDGE_DIR, S.BASE_COLLECTION)
 
-    # Sincronizar la carpeta de uploads
-    synced = sync_uploads_index()
-    print(f"📂 Uploads sincronizados: {synced}")
+    if os.path.exists(S.UPLOAD_DIR):
+        for filename in os.listdir(S.UPLOAD_DIR):
+            filepath = os.path.join(S.UPLOAD_DIR, filename)
+            try:
+                if os.path.isfile(filepath) or os.path.islink(filepath):
+                    os.unlink(filepath)
+                elif os.path.isdir(filepath):
+                    shutil.rmtree(filepath)
+            except Exception as e:
+                print('')
+
+    sync_uploads_index()
 
 @app.post("/api/chat")
 async def chat_endpoint(req: ChatRequest):
@@ -480,7 +433,6 @@ async def chat_endpoint(req: ChatRequest):
 
     result_text = "\n".join(lines).strip()
 
-    # === 4) Además: JSON por cada OFERTA con el esquema de /analyze ===
     #     Construimos contexto enfocado por oferta (OFERTA + BASE del mismo doctype)
     vs_base = _ensure_chroma(S.BASE_COLLECTION)
     vs_up   = _ensure_chroma(S.UPLOADS_COLLECTION)
@@ -562,8 +514,6 @@ async def chat_endpoint(req: ChatRequest):
         "per_offer_analysis": per_offer_analysis
     }
 
-
-
 @app.post("/api/upload-pdf")
 async def upload_pdf(files: List[UploadFile] = File(...)):
     if not files:
@@ -591,58 +541,8 @@ async def list_pdf():
         })
     return {"count": len(files), "files": files}
 
-@app.post("/api/analyze")
-async def analyze(req: AnalyzeRequest):
-    result = await analyze_against_base(user_notes=req.query, ruc=req.ruc, extra=req.extra)
-    return {"ok": True, "analysis": result}
-
 from fastapi.staticfiles import StaticFiles
 app.mount("/", StaticFiles(directory="templates", html=True), name="front")
-
-# === Helpers para detección de archivo y construcción de contexto ===
-def detect_upload_match(query: str) -> Optional[str]:
-    """Detecta si la consulta menciona el nombre (stem) de algún PDF subido."""
-    q = (query or "").lower()
-    for p in S.UPLOAD_DIR.glob("*.pdf"):
-        stem = p.stem.lower()
-        # match por nombre base (oferta01) o con extensión
-        if stem in q or p.name.lower() in q:
-            return p.name  # devolvemos el filename exacto
-    return None
-
-def build_hybrid_context(query: str, focus_upload: Optional[str] = None, k_base: int = 8, k_up: int = 8) -> str:
-    """Recupera contexto de BASE y UPLOADS; si hay focus_upload, filtra por ese archivo."""
-    base_ret = _ensure_chroma(S.BASE_COLLECTION).as_retriever(
-        search_type="mmr", search_kwargs={"k": k_base, "fetch_k": 20}
-    )
-    # filtro para Chroma (LangChain -> Chroma 'where' se pasa en search_kwargs.filter)
-    up_kwargs = {"k": k_up, "fetch_k": 20}
-    if focus_upload:
-        up_kwargs["filter"] = {"source": {"$eq": focus_upload}}
-    else:
-        # ¡solo lo que realmente existe en /uploads/pdf ahora!
-        live = list(current_upload_sources())
-        if live:
-            up_kwargs["filter"] = {"source": {"$in": live}}
-        else:
-            # si no hay nada, evita traer uploads
-            up_kwargs["filter"] = {"source": {"$eq": "__nada__"}}
-
-    up_ret = _ensure_chroma(S.UPLOADS_COLLECTION).as_retriever(
-        search_type="mmr", search_kwargs=up_kwargs
-    )
-
-    base_docs = base_ret.get_relevant_documents(query)
-    up_docs   = up_ret.get_relevant_documents(query)
-
-    context = []
-    for d in (base_docs + up_docs):
-        src = d.metadata.get("source")
-        col = d.metadata.get("collection")
-        label = Path(src).stem
-        #context.append(f"\n### SOURCE: {src} ({col})\n{d.page_content}\n")
-        context.append(f"\n### DOC: {label}\n{d.page_content}\n")
-    return "".join(context)
 
 def current_upload_sources() -> set[str]:
     return {p.name for p in S.UPLOAD_DIR.glob("*.pdf")}
@@ -844,36 +744,6 @@ def build_multi_offer_context(query: str, k_base: int = 8, k_up: int = 8) -> Tup
 
     return "".join(context_parts), offers_stem
 
-
-
-def infer_doc_type_from_path(path: Path) -> Optional[str]:
-    # por carpeta o por nombre
-    name = path.name.lower()
-    parts = {path.parent.name.lower(), path.stem.lower(), path.name.lower()}
-    if any("pliego" in p for p in parts): return "pliego"
-    if any(x in p for p in parts for x in ["oferta","propuesta"]): return "propuesta"
-    if any("contrato" in p for p in parts): return "contrato"
-    if any("formulario" in p for p in parts): return "formulario"
-    if any("anexo" in p for p in parts): return "anexo"
-    # por carpeta explícita (knowledge/pdf/pliegos, etc.)
-    if path.parent.name.lower() in S.DOC_TYPES:
-        return path.parent.name.lower()
-    return None
-
-def infer_doc_type_from_text(text: str) -> Optional[str]:
-    t = text[:4000].lower()  # mira el inicio para no gastar
-    if re.search(r"\bpliego(s)?\b|bases? (administrativas|técnicas)", t): return "pliego"
-    if re.search(r"\bpropuest(a|as)\b|\boferta\b", t): return "propuesta"
-    if re.search(r"\bcontrat(o|os)\b|\bcláusulas\b", t): return "contrato"
-    if re.search(r"\bformulario\b|\bformato\b", t): return "formulario"
-    if re.search(r"\banexo(s)?\b", t): return "anexo"
-    return None
-
-def decide_doc_type(pdf_path: Path, extracted_text: str) -> str:
-    return (infer_doc_type_from_path(pdf_path)
-            or infer_doc_type_from_text(extracted_text)
-            or "otros")
-
 def guess_doctype(filename: str, sample_text: str = "") -> str:
     name = filename.lower()
     text = (sample_text or "").lower()
@@ -903,44 +773,43 @@ def extract_text_head(pdf_path: Path, enable_ocr: bool = S.ENABLE_OCR, max_chars
             parts.append(pytesseract.image_to_string(img, lang="spa+eng"))
     return "\n".join(parts)[:max_chars]
 
+# def build_context_for_offer(stem: str, query: str, k_base: int = 8, k_up: int = 8) -> str:
+#     """Contexto para UNA oferta: sus chunks y BASE del mismo doctype."""
+#     vs_base = _ensure_chroma(S.BASE_COLLECTION)
+#     vs_up   = _ensure_chroma(S.UPLOADS_COLLECTION)
 
-def build_context_for_offer(stem: str, query: str, k_base: int = 8, k_up: int = 8) -> str:
-    """Contexto para UNA oferta: sus chunks y BASE del mismo doctype."""
-    vs_base = _ensure_chroma(S.BASE_COLLECTION)
-    vs_up   = _ensure_chroma(S.UPLOADS_COLLECTION)
+#     # Doctor del upload
+#     up_meta = vs_up._collection.get(
+#         where={"source": {"$regex": f"^{re.escape(stem)}\\.pdf$"}},
+#         include=["metadatas"]
+#     )
+#     metadatas = up_meta.get("metadatas") or []
+#     doctype = None
+#     for m in metadatas:
+#         if m and m.get("doctype"):
+#             doctype = m["doctype"]; break
+#     if not doctype: doctype = "OTROS"
 
-    # Doctor del upload
-    up_meta = vs_up._collection.get(
-        where={"source": {"$regex": f"^{re.escape(stem)}\\.pdf$"}},
-        include=["metadatas"]
-    )
-    metadatas = up_meta.get("metadatas") or []
-    doctype = None
-    for m in metadatas:
-        if m and m.get("doctype"):
-            doctype = m["doctype"]; break
-    if not doctype: doctype = "OTROS"
+#     # OFERTA (solo ese archivo)
+#     up_ret = vs_up.as_retriever(
+#         search_type="mmr",
+#         search_kwargs={"k": k_up, "fetch_k": 20, "filter": {"source": {"$regex": f"^{re.escape(stem)}\\.pdf$"}}}
+#     )
+#     up_docs = up_ret.get_relevant_documents(query)
 
-    # OFERTA (solo ese archivo)
-    up_ret = vs_up.as_retriever(
-        search_type="mmr",
-        search_kwargs={"k": k_up, "fetch_k": 20, "filter": {"source": {"$regex": f"^{re.escape(stem)}\\.pdf$"}}}
-    )
-    up_docs = up_ret.get_relevant_documents(query)
+#     # BASE (mismo doctype)
+#     base_ret = vs_base.as_retriever(
+#         search_type="mmr",
+#         search_kwargs={"k": k_base, "fetch_k": 20, "filter": {"doctype": {"$eq": doctype}}}
+#     )
+#     base_docs = base_ret.get_relevant_documents(query)
 
-    # BASE (mismo doctype)
-    base_ret = vs_base.as_retriever(
-        search_type="mmr",
-        search_kwargs={"k": k_base, "fetch_k": 20, "filter": {"doctype": {"$eq": doctype}}}
-    )
-    base_docs = base_ret.get_relevant_documents(query)
-
-    parts = []
-    for d in base_docs:
-        parts.append(f"\n### DOC: {Path((d.metadata.get('source') or '')).stem} (BASE)\n{d.page_content}\n")
-    for d in up_docs:
-        parts.append(f"\n### DOC: {Path((d.metadata.get('source') or '')).stem} (OFERTA)\n{d.page_content}\n")
-    return "".join(parts)
+#     parts = []
+#     for d in base_docs:
+#         parts.append(f"\n### DOC: {Path((d.metadata.get('source') or '')).stem} (BASE)\n{d.page_content}\n")
+#     for d in up_docs:
+#         parts.append(f"\n### DOC: {Path((d.metadata.get('source') or '')).stem} (OFERTA)\n{d.page_content}\n")
+#     return "".join(parts)
 
 
 

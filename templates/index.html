@@ -22,15 +22,12 @@
 </head>
 <body>
 <h1>Asistente IA RAG 📚</h1>
-<p class="tiny">Frontend estático hablando con tu API backend.</p>
 
 <section>
   <h2>Chat / Análisis</h2>
   <div class="row" style="margin-bottom:8px;">
     <input id="q" type="text" placeholder="Pregunta o instrucciones..." style="flex:1; min-width:280px;" />
-    <input id="ruc" type="text" placeholder="RUC (opcional)" style="width:180px;" />
-    <button id="ask">Preguntar</button>
-    <button id="analyze">Analizar</button>
+    <button id="ask">Analizar</button>
   </div>
   <div id="chat" class="chat"></div>
 </section>
@@ -53,7 +50,6 @@ const API_BASE = localStorage.getItem("API_BASE") || "http://127.0.0.1:8000";
 // ===== Helpers UI =====
 const $chat = document.getElementById("chat");
 const $q    = document.getElementById("q");
-const $ruc  = document.getElementById("ruc");
 const $files= document.getElementById("files");
 const $list = document.getElementById("list");
 const $status = document.getElementById("status");
@@ -136,19 +132,6 @@ document.getElementById("ask").onclick = async () => {
   }
 };
 
-
-document.getElementById("analyze").onclick = async ()=>{
-  const query = $q.value.trim() || "Analiza cumplimiento, riesgos y diferencias clave.";
-  const ruc = $ruc.value.trim() || null;
-  addUser(`🧪 Analizar ${ruc ? "(RUC: "+escapeHtml(ruc)+")" : ""}`);
-  try{
-    const data = await apiPost("/api/analyze", { query, ruc });
-    addBot(pretty(data.analysis || data));
-  }catch(e){
-    addBot(`⚠️ Error /api/analyze<br>${escapeHtml(e.message)}`);
-  }
-};
-
 document.getElementById("upload").onclick = async ()=>{
   const files = $files.files;
   if(!files || !files.length) return;
@@ -191,7 +174,6 @@ function humanSize(bytes){
   return `${n.toFixed(n >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-// auto-load
 refreshList();
 </script>
 </body>
