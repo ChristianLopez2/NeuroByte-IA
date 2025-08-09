@@ -1,19 +1,17 @@
 fastapi
-uvicorn
+uvicorn[standard]
 pydantic
 starlette
+python-multipart
 
-
-langchain
-langchain-openai
-langchain-community
-chromadb
-tiktoken  # langchain suele necesitarlo
+langchain>=0.2.11
+langchain-openai>=0.1.23
+langchain-community>=0.2.11
+chromadb>=0.5.4
+tiktoken
 openai
 
-
 httpx
-
 
 PyMuPDF
 Pillow
