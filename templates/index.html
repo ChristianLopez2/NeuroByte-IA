@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>RAG Licitaciones – Front</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root { --b:#eee; --t:#222; --muted:#666; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color:var(--t); margin:24px; }
+  h1 { margin: 0 0 12px; }
+  .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .chat { border:1px solid var(--b); border-radius:10px; padding:12px; height:340px; overflow:auto; }
+  .msg{ padding:8px 10px; border-radius:8px; margin:6px 0; max-width:100%; white-space:pre-wrap; word-wrap:break-word; }
+  .user{ background:#e8f3ff; align-self:flex-end; }
+  .bot{ background:#f6f6f6; }
+  .tiny{ color:var(--muted); font-size:12px; }
+  button{ cursor:pointer; }
+  pre{ white-space:pre-wrap; word-wrap:break-word; margin:0; }
+  .chip{ display:inline-block; padding:4px 8px; border:1px solid var(--b); border-radius:16px; margin:4px; }
+  input[type="text"]{ padding:8px; border:1px solid var(--b); border-radius:8px; min-width:200px; }
+</style>
+</head>
+<body>
+<h1>Asistente IA RAG 📚</h1>
+<p class="tiny">Frontend estático hablando con tu API backend.</p>
+
+<section>
+  <h2>Chat / Análisis</h2>
+  <div class="row" style="margin-bottom:8px;">
+    <input id="q" type="text" placeholder="Pregunta o instrucciones..." style="flex:1; min-width:280px;" />
+    <input id="ruc" type="text" placeholder="RUC (opcional)" style="width:180px;" />
+    <button id="ask">Preguntar</button>
+    <button id="analyze">Analizar</button>
+  </div>
+  <div id="chat" class="chat"></div>
+</section>
+
+<section style="margin-top:24px;">
+  <h2>Subir PDFs (oferente)</h2>
+  <div class="row" style="margin-bottom:8px;">
+    <input id="files" type="file" accept="application/pdf" multiple />
+    <button id="upload">Subir</button>
+    <button id="refresh">Actualizar lista</button>
+    <span id="status" class="tiny"></span>
+  </div>
+  <div id="list" class="tiny">No hay archivos aún.</div>
+</section>
+
+<script>
+// ===== Config =====
+const API_BASE = localStorage.getItem("API_BASE") || "http://127.0.0.1:8000";
+
+// ===== Helpers UI =====
+const $chat = document.getElementById("chat");
+const $q    = document.getElementById("q");
+const $ruc  = document.getElementById("ruc");
+const $files= document.getElementById("files");
+const $list = document.getElementById("list");
+const $status = document.getElementById("status");
+
+function addMsg(text, cls="bot"){
+  const div = document.createElement("div");
+  div.className = `msg ${cls}`;
+  div.innerHTML = text;
+  $chat.appendChild(div);
+  $chat.scrollTop = $chat.scrollHeight;
+}
+function addUser(text){ addMsg(escapeHtml(text), "user"); }
+function addBot(text){ addMsg(text, "bot"); }
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"'`=\/]/g, s => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[s]
+  ));
+}
+
+function pretty(obj){
+  try{ return `<pre>${JSON.stringify(obj, null, 2)}</pre>`; }
+  catch{ return `<pre>${obj}</pre>`; }
+}
+
+// ===== API calls =====
+async function apiPost(path, body){
+  const r = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(body || {})
+  });
+  if(!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return r.json();
+}
+async function apiGet(path){
+  const r = await fetch(`${API_BASE}${path}`);
+  if(!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return r.json();
+}
+async function apiUpload(path, files){
+  const fd = new FormData();
+  for(const f of files) fd.append("files", f);
+  const r = await fetch(`${API_BASE}${path}`, { method:"POST", body: fd });
+  if(!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return r.json();
+}
+
+// ===== Events =====
+document.getElementById("ask").onclick = async ()=>{
+  const query = $q.value.trim();
+  if(!query) return;
+  addUser(query);
+  $q.value = "";
+  try{
+    const data = await apiPost("/api/chat", { query });
+    addBot(escapeHtml(data.result || "Sin respuesta 😅"));
+  }catch(e){
+    addBot(`⚠️ Error /api/chat<br>${escapeHtml(e.message)}`);
+  }
+};
+
+document.getElementById("analyze").onclick = async ()=>{
+  const query = $q.value.trim() || "Analiza cumplimiento, riesgos y diferencias clave.";
+  const ruc = $ruc.value.trim() || null;
+  addUser(`🧪 Analizar ${ruc ? "(RUC: "+escapeHtml(ruc)+")" : ""}`);
+  try{
+    const data = await apiPost("/api/analyze", { query, ruc });
+    addBot(pretty(data.analysis || data));
+  }catch(e){
+    addBot(`⚠️ Error /api/analyze<br>${escapeHtml(e.message)}`);
+  }
+};
+
+document.getElementById("upload").onclick = async ()=>{
+  const files = $files.files;
+  if(!files || !files.length) return;
+  $status.textContent = "Subiendo...";
+  try{
+    const data = await apiUpload("/api/upload-pdf", files);
+    $status.textContent = "✅ Listo";
+    addBot(`Subidos: ${data.files.map(x=>x.filename).join(", ")}`);
+    await refreshList();
+  }catch(e){
+    $status.textContent = "⚠️ Error al subir";
+    addBot(`⚠️ Error /api/upload-pdf<br>${escapeHtml(e.message)}`);
+  }finally{
+    setTimeout(()=> $status.textContent="", 1500);
+    $files.value = "";
+  }
+};
+
+document.getElementById("refresh").onclick = refreshList;
+
+async function refreshList(){
+  try{
+    const data = await apiGet("/api/list-pdf");
+    if(!data.files || !data.files.length){
+      $list.textContent = "No hay archivos aún.";
+      return;
+    }
+    $list.innerHTML = data.files.map(f => (
+      `<span class="chip">${escapeHtml(f.filename)} · ${humanSize(f.size_bytes||0)}</span>`
+    )).join("");
+  }catch(e){
+    $list.textContent = "⚠️ Error listando PDFs";
+  }
+}
+
+function humanSize(bytes){
+  const units = ['B','KB','MB','GB','TB'];
+  let i = 0, n = Math.max(0, bytes);
+  while(n >= 1024 && i < units.length-1){ n/=1024; i++; }
+  return `${n.toFixed(n >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+// auto-load
+refreshList();
+</script>
+</body>
+</html>
