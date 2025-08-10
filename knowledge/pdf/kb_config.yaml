@@ -1,0 +1,177 @@
+version: 1
+
+facets:
+  familia:
+    - label: bienes_servicios
+      patterns: ['\bbienes\b', '\bservicios\b', 'bienes y servicios']
+    - label: consultoria
+      patterns: ['consultor[ií]a']
+    - label: obras
+      patterns: ['\bobras\b']
+    - label: seguros
+      patterns: ['\bseguro', 'licitaci[oó]n de seguros']
+    - label: regimen_especial
+      patterns: ['r[eé]gimen\s+especial']
+
+  procedimiento:
+    - label: Cotizacion
+      patterns: ['cotizaci[oó]n']
+    - label: Licitacion
+      patterns: ['licitaci[oó]n']
+    - label: Menor Cuantia
+      patterns: ['menor\s+cuant[ií]a']
+    - label: Subasta Inversa Electrónica
+      patterns: ['subasta\s+inversa']
+    - label: Pliego
+      patterns: ['\bpliego\b']
+
+  doc_role:
+    # Pliego y contrato (gen/part)
+    - label: pliego_condiciones_generales
+      patterns: ['condiciones\s+generales\s+del\s+pliego']
+    - label: pliego_condiciones_particulares
+      patterns: ['condiciones\s+particulares\s+del\s+pliego']
+    - label: contrato_condiciones_generales
+      patterns: ['condiciones\s+generales\s+del\s+contrato']
+    - label: contrato_condiciones_particulares
+      patterns: ['condiciones\s+particulares\s+del\s+contrato']
+
+    # Formularios
+    - label: formulario_oferta
+      patterns: ['formulario.*oferta', 'formulario.*[úu]nico.*oferta']
+    - label: formulario_consorcio
+      patterns: ['formulario.*(consorcio|asociaci[oó]n)']
+    - label: formulario_reaseguro
+      patterns: ['reaseguro']
+
+    # Índices / secciones
+    - label: indice
+      patterns: ['\b[ií]ndice\b', 'secci[oó]n\s*\d+']
+
+    # SIE (Subasta Inversa Electrónica)
+    - label: pliego_sie
+      patterns: ['\bpliego\b.*\bsie\b', '\bsie\b.*\bpliego\b', 'subasta\s+inversa.*pliego']
+    - label: formulario_sie
+      patterns: ['formulario.*\bsie\b', '\bsie\b.*formulario']
+
+    # Normativa / manuales
+    - label: normativa_ley
+      patterns: ['\bley\b', 'org[aá]nica.*contrataci[oó]n p[úu]blica']
+    - label: normativa_reglamento
+      patterns: ['\breglamento\b.*contrataci[oó]n p[úu]blica']
+    - label: manual_mfc
+      patterns: ['manual.*mfc']
+
+    # Contratos particulares (régimen especial)
+    - label: contrato_particular
+      patterns: ['contrato\s*particular']
+
+    # Ejemplos reales
+    - label: ejemplo_real
+      patterns: [
+        '\b\d{8,}\.pdf\b',          # ids del portal
+        '04_ejemplos_reales',       # carpeta
+        '\bejemplo',                # palabra “ejemplo” en ruta/nombre
+        '^microsoft word - '        # tus docs “Microsoft Word - ...”
+      ]
+
+    - label: otros
+      patterns: ['.*']
+
+bundles:
+  # Bienes y Servicios — Cotización
+  - when: { familia: bienes_servicios, procedimiento: Cotizacion }
+    include_roles:
+      - pliego_condiciones_generales
+      - pliego_condiciones_particulares
+      - contrato_condiciones_generales
+      - contrato_condiciones_particulares
+      - formulario_oferta
+      - formulario_consorcio
+    also_include: [normativa_ley, normativa_reglamento, manual_mfc, ejemplo_real]
+
+  # Bienes y Servicios — Licitación
+  - when: { familia: bienes_servicios, procedimiento: Licitacion }
+    include_roles:
+      - pliego_condiciones_generales
+      - pliego_condiciones_particulares
+      - contrato_condiciones_generales
+      - contrato_condiciones_particulares
+      - formulario_oferta
+      - formulario_consorcio
+    also_include: [normativa_ley, normativa_reglamento, manual_mfc, ejemplo_real]
+
+  # Bienes y Servicios — Menor Cuantía
+  - when: { familia: bienes_servicios, procedimiento: Menor Cuantia }
+    include_roles:
+      - pliego_condiciones_generales
+      - pliego_condiciones_particulares
+      - contrato_condiciones_generales
+      - contrato_condiciones_particulares
+      - formulario_oferta
+      - formulario_consorcio
+    also_include: [normativa_ley, normativa_reglamento, manual_mfc, ejemplo_real]
+
+  # Bienes y Servicios — Subasta Inversa Electrónica (SIE)
+  - when: { familia: bienes_servicios, procedimiento: Subasta Inversa Electrónica }
+    include_roles:
+      - pliego_sie
+      - formulario_sie
+      - contrato_condiciones_generales
+      - contrato_condiciones_particulares
+    also_include: [normativa_ley, normativa_reglamento, manual_mfc, ejemplo_real]
+
+  # Consultoría — Licitación (ajusta si tienes Cotización/MC)
+  - when: { familia: consultoria, procedimiento: Licitacion }
+    include_roles:
+      - pliego_condiciones_generales
+      - pliego_condiciones_particulares
+      - contrato_condiciones_generales
+      - contrato_condiciones_particulares
+      - formulario_oferta
+      - formulario_consorcio
+    also_include: [normativa_ley, normativa_reglamento, manual_mfc, ejemplo_real]
+
+  # Obras — Cotización
+  - when: { familia: obras, procedimiento: Cotizacion }
+    include_roles:
+      - pliego_condiciones_generales
+      - pliego_condiciones_particulares
+      - contrato_condiciones_generales
+      - contrato_condiciones_particulares
+      - formulario_oferta
+      - formulario_consorcio
+    also_include: [normativa_ley, normativa_reglamento, manual_mfc, ejemplo_real]
+
+  # Obras — Menor Cuantía
+  - when: { familia: obras, procedimiento: Menor Cuantia }
+    include_roles:
+      - pliego_condiciones_generales
+      - pliego_condiciones_particulares
+      - contrato_condiciones_generales
+      - contrato_condiciones_particulares
+      - formulario_oferta
+      - formulario_consorcio
+    also_include: [normativa_ley, normativa_reglamento, manual_mfc, ejemplo_real]
+
+  # Seguros — Licitación
+  - when: { familia: seguros, procedimiento: Licitacion }
+    include_roles:
+      - pliego_condiciones_generales
+      - pliego_condiciones_particulares
+      - contrato_condiciones_generales
+      - contrato_condiciones_particulares
+      - formulario_oferta
+      - formulario_consorcio
+      - formulario_reaseguro
+    also_include: [normativa_ley, normativa_reglamento, manual_mfc, ejemplo_real]
+
+  # Régimen Especial — Pliego (ajústalo a tus reglas de negocio)
+  - when: { familia: regimen_especial, procedimiento: Pliego }
+    include_roles:
+      - pliego_condiciones_generales
+      - contrato_condiciones_generales
+      - contrato_particular
+      - formulario_oferta
+      - formulario_consorcio
+    also_include: [normativa_ley, normativa_reglamento, manual_mfc, ejemplo_real]
