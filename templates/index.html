@@ -16,18 +16,18 @@
 
     <div class="chat-container">
       <section>
-        <h2 class="section-title">Analizador de documentos</h2>
+        <h2 class="section-title">Analizador de Procesos/Licitaciones</h2>
 
         <!-- NUEVO: selector de proceso -->
         <div class="row">
-          <label for="process" class="tiny" style="min-width:160px">Tipo de proceso</label>
+          <label for="process" class="tiny" style="min-width:160px">Tipo de Proceso/Licitación: </label>
           <select id="process" class="input" style="max-width:520px">
-            <!-- Se poblará con "Familia — Procedimiento" -->
+            <option value="auto" selected>Detección automática</option>
           </select>
         </div>
 
         <div class="row">
-          <input id="q" class="input" type="text" placeholder="Pregunta sobre el proceso aqui! ... (Opcional)" />
+          <input id="q" class="input" type="text" placeholder="Podemos ayudarte en algo mas? Cuentanos... (Opcional)" />
           <button id="ask" class="btn">Analizar</button>
         </div>
         <div id="chat" class="chat-box"></div>
@@ -41,7 +41,7 @@
       </div>
 
       <section class="u-mt">
-        <h2 class="section-title">Cargar documentos</h2>
+        <h2 class="section-title">Cargar Licitaciones</h2>
         <div class="row">
           <input id="files" type="file" accept="application/pdf" />
           <button id="upload" class="btn">Subir</button>
@@ -88,6 +88,26 @@ function pretty(obj){
   try{ return `<pre>${JSON.stringify(obj, null, 2)}</pre>`; }
   catch{ return `<pre>${obj}</pre>`; }
 }
+// === NUEVOS HELPERS ===
+function renderSnapshot(html){
+  // mantiene un único bloque consolidado de resultados
+  let host = document.getElementById("analysis-snapshot");
+  if(!host){
+    host = document.createElement("div");
+    host.id = "analysis-snapshot";
+    host.className = "msg bot";
+    $chat.appendChild(host);
+  }
+  host.innerHTML = html;
+  $chat.scrollTop = $chat.scrollHeight;
+}
+
+function formatNarrative(text){
+  if(!text) return "—";
+  const esc = escapeHtml(text);
+  return `<pre style="white-space:pre-wrap;margin:0">${esc}</pre>`;
+}
+
 
 // ===== API calls =====
 async function apiPost(path, body){
@@ -206,83 +226,176 @@ $process.addEventListener("change", async () => {
 
 
 // ===== Events =====
+
+// ===== Render helpers (nuevos) =====
+const SEM_COLORS = {
+  "aprobado":   "#2ecc71",
+  "faltan_requisitos": "#f1c40f",
+  "no_cumple":  "#e74c3c",
+  "": "#7f8c8d", "nd": "#7f8c8d", "n/d":"#7f8c8d"
+};
+
+const html = (s)=>s; // sintaxis azucar, ya usamos escape donde toca
+
+function colorBySemaforo(s){
+  const k=(s||"").toLowerCase();
+  return SEM_COLORS[k] || "#7f8c8d";
+}
+function badgeSemaforo(semaforo, archivo){
+  const c = colorBySemaforo(semaforo);
+  const label = (semaforo||"N/D").replace(/_/g," ").toUpperCase();
+  return html(`
+    <span class="badge" style="--b:${c}">
+      <b style="color:${c}">${label}</b> — ${escapeHtml(archivo||"Oferta")}
+    </span>
+  `);
+}
+function formatNarrative(text){
+  if(!text) return "—";
+  // líneas → <br>; bullets con "-" → <ul>
+  const lines = String(text).split(/\r?\n/).map(x=>x.trim());
+  const groups = [];
+  let ul = [];
+  for(const ln of lines){
+    if(/^[-•]\s+/.test(ln)) ul.push(escapeHtml(ln.replace(/^[-•]\s+/, "")));
+    else{
+      if(ul.length){ groups.push(`<ul class="bullets-compact">${ul.map(li=>`<li>${li}</li>`).join("")}</ul>`); ul=[]; }
+      if(ln) groups.push(`<p>${escapeHtml(ln)}</p>`);
+    }
+  }
+  if(ul.length) groups.push(`<ul class="bullets-compact">${ul.map(li=>`<li>${li}</li>`).join("")}</ul>`);
+  return groups.join("");
+}
+function cardNarrativa({archivo, texto}, semaforo){
+  const color = colorBySemaforo(semaforo);
+  return html(`
+    <div class="card rcard">
+      <div class="rcard-hd">
+        <div class="rcard-title">🗂️ ${escapeHtml(archivo||"Oferta")}</div>
+        <span class="tag" style="--b:${color};color:${color}">${(semaforo||"N/D").replace(/_/g," ").toUpperCase()}</span>
+      </div>
+      <div class="rcard-body">${formatNarrative(texto)}</div>
+    </div>
+  `);
+}
+function cardDecision(archivo, json){
+  const body = `<pre class="json">${escapeHtml(JSON.stringify(json||{}, null, 2))}</pre>`;
+  return html(`
+    <details class="card det">
+      <summary>🧾 JSON de decisión — ${escapeHtml(archivo||"Oferta")}</summary>
+      ${body}
+    </details>
+  `);
+}
+function bannerComparativo(texto){
+  if(!texto) return "";
+  return html(`
+    <div class="cmp">
+      <div class="cmp-title">📊 Comparativo</div>
+      <div class="cmp-text">${escapeHtml(texto)}</div>
+    </div>
+  `);
+}
+
+// ===== Nuevo handler de Analizar =====
+
 document.getElementById("ask").onclick = async () => {
   const btn = document.getElementById("ask");
   const query = $q.value.trim();            // puede ir vacío
   const process = getSelectedProcess();      // toma del combo "Tipo de proceso"
 
-  // pinta el mensaje del usuario solo si escribió algo
-  if (query) addUser(query);
+  if (query) addUser(query);                 // pinta mensaje del usuario (si escribió algo)
 
   btn.disabled = true;
   startProgress();
 
   try {
-    // Llama al backend aunque query esté vacío (usa el prompt por defecto del backend)
     const data = await apiPost("/api/chat", { query, process });
 
-    // 🆕 Caso: ya había análisis → backend devuelve { respuesta_chat: "..." }
+    // Si solo viene respuesta de chat (consulta sobre cache), mostrarla y salir
     if (typeof data?.respuesta_chat === "string" && data.respuesta_chat.trim()) {
-      addBot(escapeHtml(data.respuesta_chat));
+      // snapshot simple de texto
+      renderSnapshot(`<div class="msg bot">${escapeHtml(data.respuesta_chat)}</div>`);
       return;
     }
 
-    const r1 = data?.respuesta1;
-    const r2 = data?.respuesta2;
+    const r1 = data?.respuesta1 || {};
+    const r2 = data?.respuesta2 || {};
+    let htmlOut = "";
 
-    // ——— Header compacto con semáforo por archivo + comparativo ——
-    // lee semáforos desde respuesta2
-    const sems = (r2?.por_archivo || []).map(x => {
+    // ===== Semáforos (badges arriba) =====
+    const semBadges = (r2.por_archivo || []).map(x=>{
       const arch = x?.archivo || "Oferta";
       const sem  = (x?.json?.semaforo || "").toLowerCase();
       const color =
-        sem === "aprobado"   ? "#2ecc71" :
-        sem === "faltan_requisitos"? "#f1c40f" :
-        sem === "no_cumple"    ? "#e74c3c" : "#7f8c8d";
+        sem === "aprobado" ? "#2ecc71" :
+        sem === "faltan_requisitos" ? "#f1c40f" :
+        sem === "no_cumple" ? "#e74c3c" : "#7f8c8d";
       return `<span style="display:inline-block;padding:.1rem .5rem;border-radius:999px;background:${color}22;border:1px solid ${color};margin:.15rem .25rem .15rem 0">
-        <b style="color:${color}">${sem||"N/D"}</b> — ${escapeHtml(arch)}
+        <b style="color:${color}">${(sem||"N/D").replace(/_/g," ").toUpperCase()}</b> — ${escapeHtml(arch)}
       </span>`;
     }).join("");
+    if (semBadges) htmlOut += `<div style="margin-bottom:.35rem">${semBadges}</div>`;
 
-    // comparativo texto
-    const compTxt = r1?.comparativo_texto ? `<div style="margin:.25rem 0 .5rem 0"><b>Comparativo:</b> ${escapeHtml(r1.comparativo_texto)}</div>` : "";
-
-    if (sems || compTxt) {
-      addBot(`<div>${sems}${compTxt}</div>`);
+    // ===== Comparativo (una sola vez) =====
+    if (r1.comparativo_texto){
+      htmlOut += `
+        <div style="border:1px dashed #2d3b6a;border-radius:12px;padding:10px;margin:.25rem 0 .6rem 0;background:#0f1a33;">
+          <div style="font-weight:700;margin-bottom:4px">📊 Comparativo</div>
+          <div>${escapeHtml(r1.comparativo_texto)}</div>
+        </div>`;
     }
 
-    if (r1?.por_archivo?.length) {
-      r1.por_archivo.forEach(({ archivo, texto }) => {
-        const nice = [`🗂️ ${archivo || "Oferta_sin_nombre"}`, "", texto || "—"].join("\n");
-        addBot(escapeHtml(nice));
+    // ===== Narrativa por archivo (cards) =====
+    const semIndex = Object.fromEntries((r2.por_archivo||[]).map(x=>[x.archivo, (x.json?.semaforo||"")]));
+    if (r1.por_archivo?.length){
+      htmlOut += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">`;
+      r1.por_archivo.forEach(({ archivo, texto })=>{
+        const status = (semIndex[archivo]||"N/D").replace(/_/g," ").toUpperCase();
+        const color =
+          (semIndex[archivo]||"").toLowerCase()==="aprobado" ? "#2ecc71" :
+          (semIndex[archivo]||"").toLowerCase()==="faltan_requisitos" ? "#f1c40f" :
+          (semIndex[archivo]||"").toLowerCase()==="no_cumple" ? "#e74c3c" : "#7f8c8d";
+        htmlOut += `
+          <div class="card" style="background:#10162a;border:1px solid #1b2442;border-radius:14px;padding:12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+              <div style="font-weight:700">🗂️ ${escapeHtml(archivo || "Oferta")}</div>
+              <span style="display:inline-block;padding:.08rem .5rem;border-radius:999px;border:1px solid ${color};color:${color};background:${color}22;font-size:.85rem">${status}</span>
+            </div>
+            <div>${formatNarrative(texto)}</div>
+          </div>`;
       });
+      htmlOut += `</div>`;
     } else {
-      addBot("🤷 No hay narrativa para mostrar.");
+      htmlOut += `<div class="msg bot">🤷 No hay narrativa para mostrar.</div>`;
     }
 
-    if (r1?.comparativo_texto) {
-      addBot("📊 Comparativo:\n" + escapeHtml(r1.comparativo_texto));
-    } else if (r1?.comparativo) {
-      addBot("📊 Comparativo:\n" + escapeHtml(JSON.stringify(r1.comparativo, null, 2)));
-    }
-
-    if (r2?.por_archivo?.length) {
-      r2.por_archivo.forEach(({ archivo, json }) => {
+    // ===== JSON de decisión (details por archivo) =====
+    if (r2.por_archivo?.length){
+      const blocJ = r2.por_archivo.map(({ archivo, json })=>{
         const jsonStr = JSON.stringify(json ?? {}, null, 2);
-        addBot(escapeHtml(`🧾 JSON (decisión) — ${archivo || "Oferta_sin_nombre"}\n${jsonStr}`));
-      });
+        return `
+          <details style="margin-top:12px" class="card">
+            <summary style="cursor:pointer">🧾 JSON de decisión — ${escapeHtml(archivo||"Oferta")}</summary>
+            <pre style="white-space:pre-wrap;margin:.5rem 0 0 0">${escapeHtml(jsonStr)}</pre>
+          </details>`;
+      }).join("");
+      htmlOut += `<div>${blocJ}</div>`;
     } else {
-      addBot("🧩 No se generó JSON de decisión.");
+      htmlOut += `<div class="msg bot">🧩 No se generó JSON de decisión.</div>`;
     }
+
+    // ===== Un solo render consolidado (sin duplicar) =====
+    renderSnapshot(htmlOut);
+
   } catch (e) {
-    addBot(`⚠️ Error /api/chat<br>${escapeHtml(e.message)}`);
+    renderSnapshot(`⚠️ Error /api/chat<br>${escapeHtml(e.message)}`);
   } finally {
     stopProgress(true);
     btn.disabled = false;
     $q.value = ""; // limpia el campo
   }
 };
-
 
 document.getElementById("upload").onclick = async ()=>{
   const files = $files.files;

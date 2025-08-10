@@ -1,0 +1,388 @@
+{
+  "respuesta1": {
+    "por_archivo": [
+      {
+        "archivo": "EJEMPLO DE CONTRATO - RETO 1",
+        "texto": "Oferta: EJEMPLO DE CONTRATO - RETO 1\nOferente: EJEMPLO DE CONTRATO - RETO 1 — costo: 2000000000, plazo: 90 días\nRUC 0992881364001 — HABILITADO (Razón social: MURANO - IT TECNOLOGIA Y SOLUCIONES INTEGRALES S.A., Estado: ACTIVO)\nSemáforo: APROBADO\nCumplimientos relevantes:\n- Construcción solicitada por la entidad contratante en los pliegos precontractuales, y conforme a lo: Cumple, documento base: FORMULARIO-UNICO-DE-LA-OFERTA.-COTIZACION-DE-OBRA\n- Anunciado en el formulario de la oferta, la cual deberá promover el uso eficiente y aprovechamiento: Cumple, documento base: FORMULARIO-UNICO-DE-LA-OFERTA.-COTIZACION-DE-OBRA\n- La oferta, ni será objeto de evaluación por puntaje. Sin embargo, deberá encontrarse debidamente: Cumple, documento base: FORMULARIO-UNICO-DE-LA-OFERTA.-COTIZACION-DE-OBRA\nBrechas detectadas y acciones:\n- La presentación del presente formulario no será considerado como un parámetro de verificación de la oferta, ni será objeto de evaluación por puntaje: NO CUMPLE, se debe incluir en el formulario de oferta, documento base: FORMULARIO-UNICO-DE-LA-OFERTA.-COTIZACION-DE-OBRA\nRiesgos del oferente: BAJO No se identifican riesgos significativos.\nPesos categoría: Legal 0.4, Técnica 0.4, Económica 0.2"
+      },
+      {
+        "archivo": "5_Proforma_0190373479001",
+        "texto": "Oferta: 5_Proforma_0190373479001\nOferente: 5_Proforma_0190373479001 — costo: 2650, plazo: 360 días\nRUC 0160050450001 — HABILITADO (Razón social: EMPRESA PUBLICA DE ARIDOS Y ASFALTOS DEL AZUAY, ASFALTAR EP, Estado: ACTIVO)\nSemáforo: APROBADO\nCumplimientos relevantes:\n- Construcción solicitada por la entidad contratante en los pliegos precontractuales, y conforme a lo: Cumple, documento base: FORMULARIO-UNICO-DE-LA-OFERTA.-COTIZACION-DE-OBRA\n- La oferta, ni será objeto de evaluación por puntaje. Sin embargo, deberá encontrarse debidamente: Cumple, documento base: FORMULARIO-UNICO-DE-LA-OFERTA.-COTIZACION-DE-OBRA\n- La obligación de cumplimiento de estos parámetros en la ejecución contractual, constarán explícitamente: Cumple, documento base: FORMULARIO-UNICO-DE-LA-OFERTA.-COTIZACION-DE-OBRA\nBrechas detectadas y acciones:\n- La presentación del presente formulario no será considerado como un parámetro de verificación de la oferta, ni será objeto de evaluación por puntaje: NO CUMPLE, se debe incluir el formulario firmado, documento base: FORMULARIO-UNICO-DE-LA-OFERTA.-COTIZACION-DE-OBRA\nRiesgos del oferente: [BAJO] Cumple con los requisitos establecidos en los pliegos.\nPesos categoría: Legal 0.4, Técnica 0.4, Económica 0.2"
+      },
+      {
+        "archivo": "OFERTA-signed-signed-signed",
+        "texto": "Oferta: OFERTA-signed-signed-signed\nOferente: OFERTA-signed-signed-signed — costo: 32192500, plazo: N/D días\nRUC N/D — NO HABILITADO (Razón social: N/D, Estado: RUC no encontrado en el documento)\nSemáforo: NO CUMPLE\nCumplimientos relevantes:\n- Acepta que en el caso de que se comprobare una violación a los compromisos, evidencia no encontrada, doc base: FORMULARIO-UNICO-DE-LA-OFERTA-REGIMEN-ESPECIAL-BYS\n- Declara que se obliga a guardar absoluta reserva de la información, evidencia no encontrada, doc base: FORMULARIO-UNICO-DE-LA-OFERTA-REGIMEN-ESPECIAL-BYS\n- Los compromisos y obligaciones que asumirán las partes en la fase de ejecución, evidencia no encontrada, doc base: Formulario-de-Compromiso-de-Asociacion-o-Consorcio-Regimen-Especial2\nBrechas detectadas y acciones:\n- Acepta que en el caso de que se comprobare una violación a los compromisos, evidencia no encontrada, ACCIÓN CONCRETA: Incluir evidencia de aceptación de compromisos, doc base: FORMULARIO-UNICO-DE-LA-OFERTA-REGIMEN-ESPECIAL-BYS\n- Declara que se obliga a guardar absoluta reserva de la información, evidencia no encontrada, ACCIÓN CONCRETA: Incluir declaración de reserva de información, doc base: FORMULARIO-UNICO-DE-LA-OFERTA-REGIMEN-ESPECIAL-BYS\nRiesgos del oferente: ALTO falta de evidencia de cumplimiento de compromisos (N/D, N/D)\nPesos categoría: Legal 0.4, Técnica 0.4, Económica 0.2"
+      },
+      {
+        "archivo": "44890047",
+        "texto": "Oferta: 44890047\nOferente: 44890047 — costo: N/D, plazo: 30 días\nRUC 1002426128001 — HABILITADO (Razón social: REINA BECERRA JULIO ANDRES, Estado: ACTIVO)\nSemáforo: APROBADO\nCumplimientos relevantes:\n- Acepta que en el caso de que se comprobare una violación a los compromisos, la Entidad Contratante le descalifique como oferente (Formulario-Único-de-la-Oferta, pág. N/D).\n- Declara que se obliga a guardar absoluta reserva de la información confiada (Formulario-Único-de-la-Oferta, pág. N/D).\n- La garantía técnica rige desde la firma del Acta de Entrega-Recepción (44890047, pág. N/D).\nBrechas detectadas y acciones:\n- No se encontró evidencia de cumplimiento de los requisitos mínimos establecidos en el pliego, ACCIÓN CONCRETA: Incluir en la oferta la documentación que respalde el cumplimiento de los requisitos mínimos (Manual-MFC-Licitacion-Bienes-Entidades-Contratantes, pág. N/D).\nRiesgos del oferente: [BAJO] No se identificaron riesgos críticos que afecten garantías, multas o plazos.\nPesos categoría: Legal 0.4, Técnica 0.4, Económica 0.2"
+      }
+    ],
+    "comparativo_texto": "La oferta de EJEMPLO DE CONTRATO - RETO 1 cumple con todos los requisitos relevantes. No se identificaron diferencias significativas en plazos o montos. | La oferta de 5_Proforma_0190373479001 cumple con todos los requisitos relevantes y está habilitada. No se presentan diferencias significativas en plazos o montos. | La oferta de EJEMPLO DE CONTRATO - RETO 1 cumple con todos los requisitos relevantes. No se encontraron diferencias significativas en plazos o montos con respecto a las expectativas. | La oferta de 5_Proforma_0190373479001 cumple con todos los requisitos establecidos, destacando su habilitación y cumplimiento de compromisos. No se presentan diferencias significativas en costo o plazo. | El cumplimiento de la oferta es deficiente, ya que no se presenta evidencia de aceptación de compromisos ni de reserva de información. No se detectan diferencias relevantes en costo o plazo. | La oferta de 44890047 cumple con los requisitos legales y técnicos, aunque presenta brechas en la documentación de requisitos mínimos. El plazo de 30 días es competitivo. | El cumplimiento más destacado es la aceptación de los compromisos establecidos. Sin embargo, la oferta no presenta un plazo "
+  },
+  "respuesta2": {
+    "por_archivo": [
+      {
+        "archivo": "EJEMPLO DE CONTRATO - RETO 1",
+        "json": {
+          "secciones": {
+            "legales": [],
+            "tecnicas": [
+              "Construcción solicitada por la entidad contratante en los pliegos precontractuales, y conforme a lo",
+              "anunciado en el formulario de la oferta, la cual deberá promover el uso eficiente y aprovechamiento"
+            ],
+            "economicas": [
+              "La oferta, ni será objeto de evaluación por puntaje. Sin embargo, deberá encontrarse debidamente"
+            ],
+            "otros": []
+          },
+          "procesoId": null,
+          "referencia": {
+            "costo": null,
+            "plazo_dias": null
+          },
+          "requisitos": [
+            {
+              "id": "R-001",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "construcción solicitada por la entidad contratante en los pliegos precontractuales, y conforme a lo",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-002",
+              "categoria": "Tecnica",
+              "sub": null,
+              "texto": "anunciado en el formulario de la oferta, la cual deberá promover el uso eficiente y aprovechamiento",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-003",
+              "categoria": "Economica",
+              "sub": null,
+              "texto": "la oferta, ni será objeto de evaluación por puntaje. Sin embargo, deberá encontrarse debidamente",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            }
+          ],
+          "oferentes": [
+            {
+              "id": "O1",
+              "nombre": "EJEMPLO DE CONTRATO - RETO 1",
+              "costo": 2000000000,
+              "plazo_dias": 90,
+              "cumplimientos": [
+                {
+                  "reqId": "R-001",
+                  "estado": "CUMPLE",
+                  "evidencia": null
+                },
+                {
+                  "reqId": "R-002",
+                  "estado": "CUMPLE",
+                  "evidencia": null
+                },
+                {
+                  "reqId": "R-003",
+                  "estado": "CUMPLE",
+                  "evidencia": null
+                }
+              ],
+              "riesgos": []
+            }
+          ],
+          "riesgos": [],
+          "diferencias_clave": [],
+          "recomendaciones": [],
+          "ruc_validacion": {
+            "ruc": "0992881364001",
+            "nombre": "MURANO - IT TECNOLOGIA Y SOLUCIONES INTEGRALES S.A.",
+            "habilitado": true,
+            "notas": "OK"
+          },
+          "semaforo": "aprobado",
+          "pesosCategoria": {
+            "Legal": 0.4,
+            "Tecnica": 0.4,
+            "Economica": 0.2
+          }
+        }
+      },
+      {
+        "archivo": "5_Proforma_0190373479001",
+        "json": {
+          "secciones": {
+            "legales": [
+              "La oferta, ni será objeto de evaluación por puntaje. Sin embargo, deberá encontrarse debidamente"
+            ],
+            "tecnicas": [
+              "Construcción solicitada por la entidad contratante en los pliegos precontractuales, y conforme a lo",
+              "La obligación de cumplimiento de estos parámetros en la ejecución contractual, constarán explícitamente"
+            ],
+            "economicas": [
+              "La presentación del presente formulario no será considerado como un parámetro de verificación de la oferta, ni será objeto de evaluación por puntaje."
+            ],
+            "otros": []
+          },
+          "procesoId": null,
+          "referencia": {
+            "costo": null,
+            "plazo_dias": null
+          },
+          "requisitos": [
+            {
+              "id": "R-001",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "construcción solicitada por la entidad contratante en los pliegos precontractuales, y conforme a lo",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-002",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "la oferta, ni será objeto de evaluación por puntaje. Sin embargo, deberá encontrarse debidamente",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-003",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "la obligación de cumplimiento de estos parámetros en la ejecución contractual, constarán explícitamente",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            }
+          ],
+          "oferentes": [
+            {
+              "id": "O1",
+              "nombre": "5_Proforma_0190373479001",
+              "costo": 2650,
+              "plazo_dias": 360,
+              "cumplimientos": [
+                {
+                  "reqId": "R-001",
+                  "estado": "CUMPLE",
+                  "evidencia": "Cumple con los requisitos establecidos en los pliegos."
+                },
+                {
+                  "reqId": "R-002",
+                  "estado": "CUMPLE",
+                  "evidencia": "Cumple con los requisitos establecidos en los pliegos."
+                },
+                {
+                  "reqId": "R-003",
+                  "estado": "CUMPLE",
+                  "evidencia": "Cumple con los requisitos establecidos en los pliegos."
+                }
+              ],
+              "riesgos": []
+            }
+          ],
+          "riesgos": [],
+          "diferencias_clave": [],
+          "recomendaciones": [],
+          "ruc_validacion": {
+            "ruc": "0160050450001",
+            "nombre": "EMPRESA PUBLICA DE ARIDOS Y ASFALTOS DEL AZUAY, ASFALTAR EP",
+            "habilitado": true,
+            "notas": "OK"
+          },
+          "semaforo": "aprobado",
+          "pesosCategoria": {
+            "Legal": 0.4,
+            "Tecnica": 0.4,
+            "Economica": 0.2
+          }
+        }
+      },
+      {
+        "archivo": "OFERTA-signed-signed-signed",
+        "json": {
+          "secciones": {
+            "legales": [
+              "Acepta que en el caso de que se comprobare una violación a los compromisos",
+              "Declara que se obliga a guardar absoluta reserva de la información"
+            ],
+            "tecnicas": [],
+            "economicas": [],
+            "otros": []
+          },
+          "procesoId": null,
+          "referencia": {
+            "costo": 32192500,
+            "plazo_dias": null
+          },
+          "requisitos": [
+            {
+              "id": "R-001",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "Acepta que en el caso de que se comprobare una violación a los compromisos",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-002",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "Declara que se obliga a guardar absoluta reserva de la información",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            }
+          ],
+          "oferentes": [
+            {
+              "id": "O1",
+              "nombre": "OFERTA-signed-signed-signed",
+              "costo": 32192500,
+              "plazo_dias": null,
+              "cumplimientos": [
+                {
+                  "reqId": "R-001",
+                  "estado": "NO CUMPLE",
+                  "evidencia": null
+                },
+                {
+                  "reqId": "R-002",
+                  "estado": "NO CUMPLE",
+                  "evidencia": null
+                }
+              ],
+              "riesgos": []
+            }
+          ],
+          "riesgos": [
+            {
+              "tipo": "legal",
+              "detalle": "Falta de evidencia de cumplimiento de compromisos",
+              "critico": true
+            }
+          ],
+          "diferencias_clave": [],
+          "recomendaciones": [
+            "Incluir evidencia de aceptación de compromisos",
+            "Incluir declaración de reserva de información"
+          ],
+          "ruc_validacion": {
+            "ruc": null,
+            "nombre": null,
+            "habilitado": false,
+            "notas": "RUC no encontrado en el documento"
+          },
+          "semaforo": "no_cumple",
+          "pesosCategoria": {
+            "Legal": 0.4,
+            "Tecnica": 0.4,
+            "Economica": 0.2
+          }
+        }
+      },
+      {
+        "archivo": "44890047",
+        "json": {
+          "secciones": {
+            "legales": [
+              "Acepta que en el caso de que se comprobare una violación a los compromisos",
+              "Declara que se obliga a guardar absoluta reserva de la información confiada"
+            ],
+            "tecnicas": [
+              "La garantía técnica rige desde la firma del Acta de Entrega-Recepción"
+            ],
+            "economicas": [],
+            "otros": []
+          },
+          "procesoId": null,
+          "referencia": {
+            "costo": null,
+            "plazo_dias": 30
+          },
+          "requisitos": [
+            {
+              "id": "R-001",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "Acepta que en el caso de que se comprobare una violación a los compromisos",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-002",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "Declara que se obliga a guardar absoluta reserva de la información confiada",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-003",
+              "categoria": "Tecnica",
+              "sub": null,
+              "texto": "La garantía técnica rige desde la firma del Acta de Entrega-Recepción",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            }
+          ],
+          "oferentes": [
+            {
+              "id": "O1",
+              "nombre": "44890047",
+              "costo": null,
+              "plazo_dias": 30,
+              "cumplimientos": [
+                {
+                  "reqId": "R-001",
+                  "estado": "CUMPLE",
+                  "evidencia": null
+                },
+                {
+                  "reqId": "R-002",
+                  "estado": "CUMPLE",
+                  "evidencia": null
+                },
+                {
+                  "reqId": "R-003",
+                  "estado": "CUMPLE",
+                  "evidencia": null
+                }
+              ],
+              "riesgos": []
+            }
+          ],
+          "riesgos": [],
+          "diferencias_clave": [],
+          "recomendaciones": [
+            "Incluir en la oferta la documentación que respalde el cumplimiento de los requisitos mínimos."
+          ],
+          "ruc_validacion": {
+            "ruc": "1002426128001",
+            "nombre": "REINA BECERRA JULIO ANDRES",
+            "habilitado": true,
+            "notas": "OK"
+          },
+          "semaforo": "aprobado",
+          "pesosCategoria": {
+            "Legal": 0.4,
+            "Tecnica": 0.4,
+            "Economica": 0.2
+          }
+        }
+      }
+    ]
+  }
+}
