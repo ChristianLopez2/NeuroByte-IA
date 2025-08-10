@@ -58,7 +58,7 @@ class Settings:
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
     CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-4")
-    CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "800"))
+    CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
     CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "120"))
     ENABLE_OCR = os.getenv("ENABLE_OCR", "true").lower() != "false"
 
@@ -950,6 +950,65 @@ async def validate_ruc_for_offer(stem: str) -> Dict[str, Any]:
     except Exception as e:
         return {"ruc": ruc, "habilitado": None, "notas": f"Error consultando SRI: {e}"}
 
+<<<<<<< HEAD
+=======
+GROUPED_ACTIONABLE_SCHEMA = """
+Devuelve SIEMPRE un JSON VÁLIDO con este esquema:
+
+{
+  "resumen_general": "<texto corto>",
+  "por_oferta": [
+    {
+      "archivo": "<NOMBRE_DE_LA_OFERTA_SIN_PDF>",
+      "estado": "SIN_INCONSISTENCIAS|CON_INCONSISTENCIAS|SIN_EVIDENCIA",
+      "ruc_validacion": {
+        "ruc": "<13 dígitos o null>",
+        "habilitado": true|false|null,
+        "razon_social": "<string|null>",
+        "estado": "<string|null>",
+        "actividad_principal": "<string|null>",
+        "tipo": "<string|null>",
+        "regimen": "<string|null>",
+        "notas": "<string>"
+      },
+      "inconsistencias": [
+        {
+          "requisito": "<texto corto del requisito detectado en la BASE>",
+          "evidencia_oferta": "<extracto o 'no encontrado'>",
+          "accion_concreta": "<qué debe añadir/modificar>",
+          "documento_base": "<NOMBRE_DOC_BASE_SIN_PDF|null>",
+          "tipo": "legal|tecnico|economico|otro"
+        }
+      ],
+      "cumplimientos": [
+        {
+          "requisito": "<texto corto del requisito de la BASE que sí se cumple>",
+          "evidencia_oferta": "<extracto que demuestra el cumplimiento>",
+          "documento_base": "<NOMBRE_DOC_BASE_SIN_PDF|null>",
+          "tipo": "legal|tecnico|economico|otro"
+        }
+      ],
+      "semaforo": "aprobado|faltan_requisitos|no_cumple"
+    }
+  ],
+  "comparativo": {
+    "mejor_cumplimiento": "<archivo o 'empate' o 'sin_datos'>",
+    "diferencias_relevantes": [
+      {"tema": "plazo|monto|garantias|otros", "detalle": "<texto>", "impacto": "bajo|medio|alto", "base": "<opcional>", "oferta": "<opcional>"}
+    ]
+  }
+}
+
+REGLAS:
+- Prohibido responder con “revisa el pliego”, “consulta el documento” o equivalentes.
+- No inventes requisitos: SOLO usa lo presente en el CONTEXTO RAG.
+- Si no hay evidencia suficiente en la base para evaluar un punto, marca el archivo como "SIN_EVIDENCIA" o la inconsistencia con "evidencia_oferta": "no encontrado" y "documento_base": null.
+- Cuando cites documentos (base u oferta), usa SOLO el nombre tras '### DOC:' (sin .pdf ni colección).
+- Calcula 'semaforo' así: aprobado=0 inconsistencias; faltan_requisitos=1-2 inconsistencias no críticas; no_cumple=3+ o inconsistencias críticas si se deduce del contexto.
+- Si una oferta no presenta inconsistencias, rellena 'cumplimientos' con 3–10 puntos concretos que SÍ cumple (cada uno con evidencia corta y referencia al documento base).
+"""
+
+>>>>>>> origin/Christian-Joaqui
 def _and_filter(*clauses: dict) -> dict:
     clauses = [c for c in clauses if c]
     if not clauses:
@@ -1219,6 +1278,12 @@ Devuelve UN ÚNICO JSON **válido** exactamente con esta forma:
   "respuesta2": {
     "por_archivo": [
       { "archivo": "<stem>", "json": {
+          "secciones": {
+            "legales":    ["..."],
+            "tecnicas":   ["..."],
+            "economicas": ["..."],
+            "otros":      ["..."]
+          },
           "procesoId": "<string|null>",
           "referencia": { "costo": <number|null>, "plazo_dias": <number|null> },
           "requisitos": [
@@ -1231,20 +1296,37 @@ Devuelve UN ÚNICO JSON **válido** exactamente con esta forma:
               "riesgos": [ { "nivel": "ALTO|MEDIO|BAJO", "clausula": "<string|null>", "pagina": <number|null>, "descripcion": "<string>" } ]
             }
           ],
+          "riesgos": [
+            {"tipo": "legal|tecnico|economico", "detalle": "<texto>", "critico": true|false}
+          ],
+          "diferencias_clave": [
+            {"tema": "plazo|monto|garantias|otros", "base": "...", "oferente": "...", "impacto": "bajo|medio|alto"}
+          ],
+          "recomendaciones": ["..."],
+          "ruc_validacion": {
+            "ruc": "<string|null>",
+            "nombre": "<string|null>",
+            "habilitado": true|false|null,
+            "notas": "<string|null>"
+          },
+          "semaforo": "aprobado|faltan_requisitos|no_cumple",
           "pesosCategoria": { "Legal": <number>, "Tecnica": <number>, "Economica": <number> }
       } }
     ]
   }
 }
 
-# CRITERIOS ESPECÍFICOS PARA 'respuesta2.json' (DECISIÓN)
+# CRITERIOS ESPECÍFICOS PARA 'respuesta2.json'
 - "procesoId": toma EXACTAMENTE de base.procesoIds (si no hay → null).
-- "referencia.costo" y "referencia.plazo_dias": SOLO de base.costos / base.plazos_dias respectivamente (si no hay → null).
+- "referencia.costo" y "referencia.plazo_dias": SOLO de base.costos / base.plazos_dias (si no hay → null).
 - "oferentes[0].nombre": SOLO de oferta.nombres_posibles; "costo"/"plazo_dias": SOLO de oferta.costos / oferta.plazos_dias.
-- "requisitos": cada "texto" debe ser **cita literal** de base.req_samples (sin parafrasear). Incluye de 5 a 20 si hay suficientes; si no, incluye las disponibles.
+- "requisitos": cada "texto" debe ser **cita literal** de base.req_samples (sin parafrasear). Incluye 5–20 si hay suficientes.
   - "clausula": intenta mapear con base.clausulas; si no aplica → null.
-  - "peso": si no hay criterio, usa 1.0; rango permitido [0.5, 2.0].
-- "cumplimientos": decide CUMPLE/PARCIAL/NO CUMPLE comparando literalmente el requisito con el contenido de la OFERTA en el CONTEXTO; si no hay evidencia → "NO CUMPLE".
+  - "peso": si no hay criterio, usa 1.0; rango [0.5, 2.0].
+- "cumplimientos": decide CUMPLE/PARCIAL/NO CUMPLE comparando literalmente el requisito con el contenido de la OFERTA; si no hay evidencia → "NO CUMPLE".
+- "riesgos": marca "critico": true cuando afecte garantías, multas, plazos o pagos de forma material.
+- "secciones": reparte frases/ítems detectados en cada ámbito (legales/técnicas/económicas/otros).
+- "semaforo": aprobado=0 inconsistencias; faltan_requisitos=1–2 no críticas; no_cumple=3+ o críticas.
 - "pesosCategoria": si no hay info explícita, usa { "Legal":0.4, "Tecnica":0.4, "Economica":0.2 }.
 
 # CRITERIOS PARA 'respuesta1.texto' (NARRATIVA)
@@ -1253,18 +1335,15 @@ Devuelve UN ÚNICO JSON **válido** exactamente con esta forma:
   2) Si hay procesoId, muéstralo.
   3) "Referencia BASE — costo: <N/D o número>, plazo: <N/D o número> días"
   4) "Oferente: <nombre> — costo: <N/D o número>, plazo: <N/D o número> días"
-  5) Si hay RUC_VALIDACION externo, muéstralo en una sola línea: "RUC <num> — HABILITADO/NO HABILITADO (Razón social: <...>, Estado: <...>)"
-  6) "Semáforo: VERDE/AMARILLO/ROJO" (derivado de la calidad de cumplimiento según el CONTEXTO; si no puedes inferir, usa AMARILLO)
-  7) "Cumplimientos relevantes:" con 3–10 bullets cortos si existen (requisito, evidencia breve, documento base).
-  8) "Brechas detectadas y acciones:" con bullets (requisito, evidencia no encontrada o parcial, acción concreta, documento base).
-  9) "Riesgos del oferente:" con bullets [nivel] descripción (cláusula, pág).
-  10) "Pesos categoría (si aplica): Legal X, Técnica Y, Económica Z" si están en la decisión.
-
-- Semáforo (heurística textual): verde=0 brechas; amarillo=1–2 no críticas; rojo=3+ o críticas.
+  5) "RUC <num> — HABILITADO/NO HABILITADO (Razón social: <...>, Estado: <...>)" cuando exista validación
+  6) "Semáforo: APROBADO/FALTAN_REQUISITOS/NO_CUMPLE"
+  7) "Cumplimientos relevantes:" 3–10 bullets (requisito, evidencia breve, doc base).
+  8) "Brechas detectadas y acciones:" bullets (requisito, evidencia no encontrada o parcial, ACCIÓN CONCRETA, doc base).
+  9) "Riesgos del oferente:" [nivel] descripción (cláusula, pág).
+  10) "Pesos categoría: Legal X, Técnica Y, Económica Z" si están.
 
 # COMPARATIVO (respuesta1.comparativo_texto)
-- Resume en 1–3 líneas el "mejor cumplimiento" entre archivos y una o dos diferencias relevantes (plazo, monto, garantías).
-- Debe ser TEXTO, no JSON.
+- Resume en 1–3 líneas el "mejor cumplimiento" y 1–2 diferencias (plazo, monto, garantías).
 
 # INSUMOS
 - PREGUNTA_DEL_USUARIO:
@@ -1273,6 +1352,7 @@ Devuelve UN ÚNICO JSON **válido** exactamente con esta forma:
 - BLOQUES_DE_ENTRADA (repite para cada archivo):
 {BLOQUES}
 """
+<<<<<<< HEAD
 
 def extract_text_head_from_bytes(pdf_bytes: bytes, max_chars: int = 6000, enable_ocr: bool = False) -> str:
     """
@@ -1432,3 +1512,5 @@ def _clean_filter(f):
         return f
 
 
+=======
+>>>>>>> origin/Christian-Joaqui
