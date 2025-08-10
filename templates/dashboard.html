@@ -74,7 +74,7 @@
         <div class="mdrop" id="mdRiesgo">
           <button class="mdrop-btn" type="button"><span id="mdRiesgoLabel">Riesgo: Todos</span><span>▾</span></button>
           <div class="mdrop-menu" id="mdRiesgoMenu"></div>
-        </div>
+        </div> 
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button id="btnCargarTipo" class="chip">Cargar por tipo</button>
@@ -293,7 +293,7 @@ function cumplimientoPorSub(data,o){ const g={}; for(const r of data.requisitos)
 function calcularKPIs(data,ids){ const of=data.oferentes.filter(o=>ids.includes(o.id)); const prom=of.length? of.map(o=>calcularCumplimientoOferente(data,o)).reduce((a,b)=>a+b)/of.length:0; let A=0,M=0,B=0; of.forEach(o=> (o.riesgos||[]).forEach(r=>{ if(r.nivel==='ALTO')A++; else if(r.nivel==='MEDIO')M++; else B++; })); const refC=data.referencia?.costo, refP=data.referencia?.plazo_dias; const deltaC=refC!=null? Math.min(...of.map(o=>Math.abs((o.costo??refC)-refC))):null; const deltaP=refP!=null? Math.min(...of.map(o=>Math.abs((o.plazo_dias??refP)-refP))):null; return {prom,riesgos:{A,M,B},deltaC,refC,deltaP,refP}; }
 function calcularImpacto(data,ids){ const of=data.oferentes.filter(o=>ids.includes(o.id)); const reqCount=data.requisitos?.length||0; const saved=(reqCount*ASSUMPTIONS.reviewMinutesPerReq)*ASSUMPTIONS.automationFactor/60; let riskCost=0,a=0,m=0,b=0; of.forEach(o=> (o.riesgos||[]).forEach(r=>{ if(r.nivel==='ALTO'){a++; riskCost+=ASSUMPTIONS.riskCostWeights.ALTO}else if(r.nivel==='MEDIO'){m++; riskCost+=ASSUMPTIONS.riskCostWeights.MEDIO}else{b++; riskCost+=ASSUMPTIONS.riskCostWeights.BAJO}})); const avg=of.length? of.map(o=>calcularCumplimientoOferente(data,o)).reduce((x,y)=>x+y)/of.length:0; const overspend=(data.referencia?.costo||0)*(1-avg/100)*ASSUMPTIONS.negotiationOverspendPct; const avoided=Math.round(riskCost+overspend); let withE=0,total=0,traces=[]; of.forEach(o=> (o.cumplimientos||[]).forEach(c=>{ total++; const has=!!(c.evidencia||c.enlace); if(has){withE++; traces.push({oferente:o.nombre,reqId:c.reqId,evidencia:c.evidencia||'',enlace:c.enlace||''});} })); const tracePct=total? (withE/total)*100:0; return {savedHours:saved,a,m,b,avoidedUSD:avoided,overspend,riskCost,tracePct,traces}; }
 
-function renderKPIs(){ const ids=getOferentes(); const k=calcularKPIs(DATA,ids); $('#kpiCumplimiento').textContent=`${k.prom.toFixed(1)}%`; $('#kpiRiesgos').textContent=`${k.riesgos.A}/${k.riesgos.M}/${k.riesgos.B}`; $('#kpiCosto').textContent=(k.refC!=null)? `Δ ${fmtNum(k.deltaC)} vs ${fmtNum(k.refC)}`:'—'; $('#kpiPlazo').textContent=(k.refP!=null)? `Δ ${k.deltaP} d vs ${k.refP} d`:'—'; }
+function renderKPIs(){ const ids=getOferentes(); const k=calcularKPIs(DATA,ids); $('#kpiCumplimiento').textContent=`${k.prom.toFixed(1)}%`; $('#kpiRiesgos').textContent=`${k.riesgos.A}/${k.riesgos.M}/${k.riesgos.B}`; $('#kpiCosto').textContent=(k.refC!=null)? ` ${fmtNum(k.deltaC)} vs ${fmtNum(k.refC)}`:'—'; $('#kpiPlazo').textContent=(k.refP!=null)? `A ${k.deltaP} d vs ${k.refP} d`:'—'; }
 function renderImpacto(){ const ids=getOferentes(); const x=calcularImpacto(DATA,ids); $('#kpiHoras').textContent=`${x.savedHours.toFixed(1)} h`; $('#kpiHorasNote').textContent=`asumiendo ${ASSUMPTIONS.reviewMinutesPerReq} min/req y ${Math.round(ASSUMPTIONS.automationFactor*100)}% automatizado`; $('#kpiCostoEv').textContent=`$ ${fmtNum(x.avoidedUSD)}`; $('#kpiCostoEvNote').textContent=`riesgos: $${fmtNum(x.riskCost)} + negociación: $${fmtNum(x.overspend)}`; $('#kpiRiesgosDetect').textContent=`${x.a}/${x.m}/${x.b}`; $('#kpiTraza').textContent=`${x.tracePct.toFixed(0)}%`; $('#kpiTrazaNote').textContent=`de cumplimientos con evidencia/enlace`;
   const top=[]; DATA.oferentes.filter(o=>ids.includes(o.id)).forEach(o=> (o.riesgos||[]).forEach(r=>top.push({...r,oferente:o.nombre})) ); top.sort((a,b)=>({ALTO:3,MEDIO:2,BAJO:1}[b.nivel]-({ALTO:3,MEDIO:2,BAJO:1}[a.nivel])) ); const cont=$('#listaTopRiesgos'); cont.innerHTML=''; top.slice(0,6).forEach(r=>{ const div=document.createElement('div'); div.className='item'; div.innerHTML=`<div><b>${r.nivel}</b> · ${r.clausula}${r.pagina?` (p.${r.pagina})`:''} · <span class="muted">${r.oferente}</span></div><div>${r.descripcion||''}</div>`; cont.appendChild(div); }); const t=$('#listaTraza'); t.innerHTML=''; x.traces.slice(0,6).forEach(ev=>{ const div=document.createElement('div'); div.className='item'; const link=ev.enlace?` <a href="${ev.enlace}" target="_blank">ver evidencia</a>`:''; div.innerHTML=`<div><b>${ev.oferente}</b> · Req ${ev.reqId}</div><div>${ev.evidencia||'—'}${link}</div>`; t.appendChild(div); }); }
 function renderRadar(){ chartRadar?.destroy(); const ids=getOferentes(); const cats=Array.from(new Set((DATA.requisitos||[]).map(r=>r.categoria||'General'))); const datasets=ids.map(id=>{ const o=DATA.oferentes.find(x=>x.id===id); const porCat=cumplimientoPorCategoria(DATA,o); return {label:o.nombre,data:cats.map(c=>porCat[c]||0),fill:true};}); chartRadar=new Chart($('#radar'),{type:'radar',data:{labels:cats,datasets},options:{scales:{r:{suggestedMin:0,suggestedMax:100}}}}); }
@@ -416,6 +416,176 @@ document.addEventListener('DOMContentLoaded', async()=>{
 });
 
 })();
+
+// 1) Helpers: estado + filtro por categoría
+function scoreEstado(e){ if(!e) return 0; const x=e.toUpperCase(); return x==='CUMPLE'?1: x==='PARCIAL'?0.5:0; }
+function reqEnCategorias(req, catsSel){ return catsSel.includes((req.categoria||'General')); }
+
+// 2) Cumplimiento por oferente con categorías seleccionadas
+function calcularCumplimientoOferente(data,o,catsSel){
+  const pesos=data.pesosCategoria||pesosPorDefecto;
+  let s=0,d=0;
+  for(const r of data.requisitos){
+    if(!reqEnCategorias(r,catsSel)) continue;
+    const w=(r.peso??1)*(pesos[r.categoria]??0.333);
+    const c=(o.cumplimientos||[]).find(x=>x.reqId===r.id);
+    s+=scoreEstado(c?.estado)*w; d+=w;
+  }
+  return d? (s/d)*100:0;
+}
+
+// 3) Cumplimiento por categoría/sub con categorías seleccionadas
+function cumplimientoPorCategoria(data,o,catsSel){
+  const g={};
+  for(const r of data.requisitos){
+    if(!reqEnCategorias(r,catsSel)) continue;
+    const cat=r.categoria||'General';
+    g[cat] ||= {s:0,d:0};
+    const c=(o.cumplimientos||[]).find(x=>x.reqId===r.id);
+    g[cat].s+=scoreEstado(c?.estado)*(r.peso??1);
+    g[cat].d+=(r.peso??1);
+  }
+  return Object.fromEntries(Object.entries(g).map(([k,v])=>[k,v.d?(v.s/v.d)*100:0]));
+}
+function cumplimientoPorSub(data,o,catsSel){
+  const g={};
+  for(const r of data.requisitos){
+    if(!reqEnCategorias(r,catsSel)) continue;
+    const key=`${r.categoria||'General'} • ${r.sub||'—'}`;
+    g[key] ||= {s:0,d:0};
+    const c=(o.cumplimientos||[]).find(x=>x.reqId===r.id);
+    g[key].s+=scoreEstado(c?.estado)*(r.peso??1);
+    g[key].d+=(r.peso??1);
+  }
+  return Object.fromEntries(Object.entries(g).map(([k,v])=>[k,v.d?(v.s/v.d)*100:0]));
+}
+
+// 4) KPIs: aplica categorías y riesgo
+function calcularKPIs(data,ids,catsSel,riesgoSel){
+  const of=data.oferentes.filter(o=>ids.includes(o.id));
+  const prom=of.length? of.map(o=>calcularCumplimientoOferente(data,o,catsSel)).reduce((a,b)=>a+b)/of.length:0;
+
+  // riesgos filtrados por riesgoSel
+  let A=0,M=0,B=0;
+  of.forEach(o=> (o.riesgos||[]).forEach(r=>{
+    const n=(r.nivel||'').toString().toUpperCase().trim();
+    if(riesgoSel!=='ALL' && n!==riesgoSel) return;
+    if(n==='ALTO')A++; else if(n==='MEDIO')M++; else B++;
+  }));
+
+  const refC=data.referencia?.costo, refP=data.referencia?.plazo_dias;
+  const deltaC=refC!=null? Math.min(...of.map(o=>Math.abs((o.costo??refC)-refC))):null;
+  const deltaP=refP!=null? Math.min(...of.map(o=>Math.abs((o.plazo_dias??refP)-refP))):null;
+  return {prom,riesgos:{A,M,B},deltaC,refC,deltaP,refP};
+}
+
+// 5) Impacto: aplica categorías y riesgo
+function calcularImpacto(data,ids,catsSel,riesgoSel){
+  const of=data.oferentes.filter(o=>ids.includes(o.id));
+  const reqCount=(data.requisitos||[]).filter(r=>reqEnCategorias(r,catsSel)).length;
+  const saved=(reqCount*ASSUMPTIONS.reviewMinutesPerReq)*ASSUMPTIONS.automationFactor/60;
+
+  let riskCost=0,a=0,m=0,b=0;
+  of.forEach(o=> (o.riesgos||[]).forEach(r=>{
+    const n=(r.nivel||'').toString().toUpperCase().trim();
+    if(riesgoSel!=='ALL' && n!==riesgoSel) return;
+    if(n==='ALTO'){a++; riskCost+=ASSUMPTIONS.riskCostWeights.ALTO}
+    else if(n==='MEDIO'){m++; riskCost+=ASSUMPTIONS.riskCostWeights.MEDIO}
+    else {b++; riskCost+=ASSUMPTIONS.riskCostWeights.BAJO}
+  }));
+
+  const avg=of.length? of.map(o=>calcularCumplimientoOferente(data,o,catsSel)).reduce((x,y)=>x+y)/of.length:0;
+  const overspend=(data.referencia?.costo||0)*(1-avg/100)*ASSUMPTIONS.negotiationOverspendPct;
+
+  // trazabilidad solo de reqs en categorías seleccionadas
+  let withE=0,total=0,traces=[];
+  of.forEach(o=> (o.cumplimientos||[]).forEach(c=>{
+    const req = (data.requisitos||[]).find(r=>r.id===c.reqId);
+    if(!req || !reqEnCategorias(req,catsSel)) return;
+    total++;
+    const has=!!(c.evidencia||c.enlace);
+    if(has){withE++; traces.push({oferente:o.nombre,reqId:c.reqId,evidencia:c.evidencia||'',enlace:c.enlace||''});}
+  }));
+  const tracePct=total? (withE/total)*100:0;
+  return {savedHours:saved,a,m,b,avoidedUSD:Math.round(riskCost+overspend),overspend,riskCost,tracePct,traces};
+}
+
+// 6) Renderers: leer filtros y pasarlos
+function renderKPIs(){
+  const ids=getOferentes(), catsSel=getCategorias(), riesgo=getRiesgo();
+  const k=calcularKPIs(DATA,ids,catsSel,riesgo);
+  $('#kpiCumplimiento').textContent=`${k.prom.toFixed(1)}%`;
+  $('#kpiRiesgos').textContent=`${k.riesgos.A}/${k.riesgos.M}/${k.riesgos.B}`;
+  $('#kpiCosto').textContent=(k.refC!=null)? ` ${fmtNum(k.deltaC)} vs ${fmtNum(k.refC)}`:'—';
+  $('#kpiPlazo').textContent=(k.refP!=null)? `A ${k.deltaP} d vs ${k.refP} d`:'—';
+}
+function renderImpacto(){
+  const ids=getOferentes(), catsSel=getCategorias(), riesgo=getRiesgo();
+  const x=calcularImpacto(DATA,ids,catsSel,riesgo);
+  $('#kpiHoras').textContent=`${x.savedHours.toFixed(1)} h`;
+  $('#kpiHorasNote').textContent=`asumiendo ${ASSUMPTIONS.reviewMinutesPerReq} min/req y ${Math.round(ASSUMPTIONS.automationFactor*100)}% automatizado`;
+  $('#kpiCostoEv').textContent=`$ ${fmtNum(x.avoidedUSD)}`;
+  $('#kpiCostoEvNote').textContent=`riesgos: $${fmtNum(x.riskCost)} + negociación: $${fmtNum(x.overspend)}`;
+  $('#kpiRiesgosDetect').textContent=`${x.a}/${x.m}/${x.b}`;
+  $('#kpiTraza').textContent=`${x.tracePct.toFixed(0)}%`;
+  $('#kpiTrazaNote').textContent=`de cumplimientos con evidencia/enlace`;
+
+  // Top riesgos (ya filtrados por riesgo)
+  const idsSel=new Set(ids);
+  const top=[];
+  DATA.oferentes.filter(o=>idsSel.has(o.id)).forEach(o=>{
+    (o.riesgos||[]).forEach(r=>{
+      const n=(r.nivel||'').toString().toUpperCase().trim();
+      if(riesgo!=='ALL' && n!==riesgo) return;
+      top.push({...r,nivel:n,oferente:o.nombre});
+    });
+  });
+top.sort((a,b)=>({ALTO:3,MEDIO:2,BAJO:1}[b.nivel]-({ALTO:3,MEDIO:2,BAJO:1}[a.nivel])));
+  const cont=$('#listaTopRiesgos'); cont.innerHTML='';
+  top.slice(0,6).forEach(r=>{
+    const div=document.createElement('div'); div.className='item';
+    div.innerHTML=`<div><b>${r.nivel}</b> · ${r.clausula}${r.pagina?` (p.${r.pagina})`:''} · <span class="muted">${r.oferente}</span></div><div>${r.descripcion||''}</div>`;
+    cont.appendChild(div);
+  });
+
+  // Trazas (ya filtradas por categoría)
+  const t=$('#listaTraza'); t.innerHTML='';
+  x.traces.slice(0,6).forEach(ev=>{
+    const div=document.createElement('div'); div.className='item';
+    const link=ev.enlace?` <a href="${ev.enlace}" target="_blank">ver evidencia</a>`:'';
+    div.innerHTML=`<div><b>${ev.oferente}</b> · Req ${ev.reqId}</div><div>${ev.evidencia||'—'}${link}</div>`;
+    t.appendChild(div);
+  });
+}
+function renderRadar(){
+  chartRadar?.destroy();
+  const ids=getOferentes(), catsSel=getCategorias();
+  const cats=Array.from(new Set((DATA.requisitos||[])
+    .filter(r=>reqEnCategorias(r,catsSel)).map(r=>r.categoria||'General')));
+  const datasets=ids.map(id=>{
+    const o=DATA.oferentes.find(x=>x.id===id);
+    const porCat=cumplimientoPorCategoria(DATA,o,catsSel);
+    return {label:o.nombre,data:cats.map(c=>porCat[c]||0),fill:true};
+  });
+  chartRadar=new Chart($('#radar'),{type:'radar',data:{labels:cats,datasets},options:{scales:{r:{suggestedMin:0,suggestedMax:100}}}});
+}
+function renderBarras(){
+  chartBarras?.destroy();
+  const ids=getOferentes(), catsSel=getCategorias();
+  const all=new Set();
+  DATA.oferentes.forEach(o=>{
+    const por=cumplimientoPorSub(DATA,o,catsSel);
+    Object.keys(por).forEach(k=>all.add(k));
+  });
+  const keys=Array.from(all);
+  const datasets=ids.map(id=>{
+    const o=DATA.oferentes.find(x=>x.id===id);
+    const por=cumplimientoPorSub(DATA,o,catsSel);
+    return {label:o.nombre,data:keys.map(k=>por[k]||0)};
+  });
+  chartBarras=new Chart($('#barras'),{type:'bar',data:{labels:keys,datasets},options:{scales:{y:{beginAtZero:true,max:100}}}});
+}
 </script>
+
 </body>
 </html>
