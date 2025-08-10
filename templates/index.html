@@ -17,6 +17,16 @@
     <div class="chat-container">
       <section>
         <h2 class="section-title">Chat / Análisis</h2>
+
+        <!-- NUEVO: selector de proceso -->
+        <div class="row">
+          <label for="process" class="tiny" style="min-width:160px">Tipo de proceso</label>
+          <select id="process" class="input" style="max-width:520px">
+            <option value="auto">Detectar automáticamente</option>
+            <!-- Se poblará con "Familia — Procedimiento" -->
+          </select>
+        </div>
+
         <div class="row">
           <input id="q" class="input" type="text" placeholder="Pregunta o instrucciones..." />
           <button id="ask" class="btn">Analizar</button>
@@ -29,7 +39,6 @@
         <div class="row">
           <input id="files" type="file" accept="application/pdf" multiple />
           <button id="upload" class="btn">Subir</button>
-          <button id="refresh" class="btn ghost">Actualizar lista</button>
           <span id="status" class="tiny"></span>
         </div>
         <div id="list" class="tiny">No hay archivos aún.</div>
@@ -49,6 +58,8 @@ const $q    = document.getElementById("q");
 const $files= document.getElementById("files");
 const $list = document.getElementById("list");
 const $status = document.getElementById("status");
+
+const $process = document.getElementById("process");
 
 function addMsg(text, cls="bot"){
   const div = document.createElement("div");
@@ -94,6 +105,81 @@ async function apiUpload(path, files){
   return r.json();
 }
 
+// ===== Procesos ===== (NUEVO)
+async function loadProcesses() {
+  try {
+    const r = await apiGet("/api/processes"); // requiere el endpoint sugerido
+    const items = (r && r.items) ? r.items : [];
+    populateProcessCombo(items);
+  } catch (e) {
+    // Fallback: lista mínima por si el endpoint no existe aún
+    const fallback = [
+      { familia: "bienes_servicios", procedimiento: "Cotizacion" },
+      { familia: "bienes_servicios", procedimiento: "Licitacion" },
+      { familia: "bienes_servicios", procedimiento: "Menor Cuantia" },
+      { familia: "consultoria", procedimiento: "Licitacion" },
+      { familia: "obras", procedimiento: "Cotizacion" },
+      { familia: "obras", procedimiento: "Menor Cuantia" },
+      { familia: "seguros", procedimiento: "Licitacion" },
+      { familia: "regimen_especial", procedimiento: "Pliego" },
+    ];
+    populateProcessCombo(fallback);
+  }
+}
+
+function populateProcessCombo(items){
+  // conservar "auto"
+  const current = localStorage.getItem("processSelection");
+  // limpia todo salvo el primer option
+  for(let i = $process.options.length - 1; i >= 1; i--) $process.remove(i);
+
+  items.forEach(p => {
+    const text = `${labelFamilia(p.familia)} — ${labelProc(p.procedimiento)}`;
+    const opt = document.createElement("option");
+    opt.value = JSON.stringify({ familia: p.familia, procedimiento: p.procedimiento });
+    opt.textContent = text;
+    $process.appendChild(opt);
+  });
+
+  if (current) {
+    // intenta restaurar
+    const idx = [...$process.options].findIndex(o => o.value === current);
+    if (idx >= 0) $process.selectedIndex = idx;
+  }
+}
+
+function labelFamilia(f){
+  const map = {
+    bienes_servicios: "Bienes y Servicios",
+    consultoria: "Consultoría",
+    obras: "Obras",
+    seguros: "Licitación de Seguros",
+    regimen_especial: "Régimen Especial"
+  };
+  return map[f] || f || "—";
+}
+function labelProc(p){
+  const map = {
+    Cotizacion: "Cotización",
+    Licitacion: "Licitación",
+    "Menor Cuantia": "Menor Cuantía",
+    "Subasta Inversa Electrónica": "Subasta Inversa Electrónica",
+    Pliego: "Pliego"
+  };
+  return map[p] || p || "—";
+}
+
+function getSelectedProcess(){
+  const v = $process.value;
+  if (!v || v === "auto") return null;
+  try { return JSON.parse(v); } catch { return null; }
+}
+
+// guarda selección
+$process.addEventListener("change", () => {
+  localStorage.setItem("processSelection", $process.value || "auto");
+});
+
 // ===== Events =====
 document.getElementById("ask").onclick = async () => {
   const query = $q.value.trim();
@@ -101,31 +187,53 @@ document.getElementById("ask").onclick = async () => {
   addUser(query);
   $q.value = "";
 
+  const process = getSelectedProcess();
+
   try {
-    const data = await apiPost("/api/chat", { query });
+    const data = await apiPost("/api/chat", { query, process });
+    const r1 = data?.respuesta1;
+    const r2 = data?.respuesta2;
 
-    // Mostrar resultado principal
-    addBot(escapeHtml(data.result || "Sin respuesta 😅"));
+    if (r1 || r2) {
+      // 1) Narrativa por archivo (Respuesta1)
+      if (r1?.por_archivo?.length) {
+        r1.por_archivo.forEach(({ archivo, texto }) => {
+          const nice = [
+            `🗂️ ${archivo || "Oferta_sin_nombre"}`,
+            "", // spacer
+            texto || "—",
+          ].join("\n");
+          addBot(escapeHtml(nice));
+        });
+      } else {
+        addBot("🤷 No hay narrativa para mostrar.");
+      }
 
-    // Mostrar análisis global
-    if (data.analysis) {
-      const analysisStr = typeof data.analysis === "string"
-        ? data.analysis
-        : JSON.stringify(data.analysis, null, 2);
-      addBot("📊 Análisis global:\n" + escapeHtml(analysisStr));
+      // 1b) Comparativo global (si existe)
+      if (r1?.comparativo) {
+        const compStr = JSON.stringify(r1.comparativo, null, 2);
+        addBot("📊 Comparativo global:\n" + escapeHtml(compStr));
+      }
+
+      // 2) JSON por archivo (Respuesta2)
+      if (r2?.por_archivo?.length) {
+        r2.por_archivo.forEach(({ archivo, json }) => {
+          const jsonStr = JSON.stringify(json ?? {}, null, 2);
+          const pretty = [
+            `🧾 JSON (decisión) — ${archivo || "Oferta_sin_nombre"}`,
+            jsonStr
+          ].join("\n");
+          addBot(escapeHtml(pretty));
+        });
+      } else {
+        addBot("🧩 No se generó JSON de decisión.");
+      }
+      return;
     }
-
-    // Mostrar análisis por oferta
-    if (data.per_offer_analysis) {
-      const perOfferStr = typeof data.per_offer_analysis === "string"
-        ? data.per_offer_analysis
-        : JSON.stringify(data.per_offer_analysis, null, 2);
-      addBot("📂 Análisis por oferta:\n" + escapeHtml(perOfferStr));
-    }
-
   } catch (e) {
     addBot(`⚠️ Error /api/chat<br>${escapeHtml(e.message)}`);
   }
+
 };
 
 document.getElementById("upload").onclick = async ()=>{
@@ -145,8 +253,6 @@ document.getElementById("upload").onclick = async ()=>{
     $files.value = "";
   }
 };
-
-document.getElementById("refresh").onclick = refreshList;
 
 async function refreshList(){
   try{
@@ -171,6 +277,7 @@ function humanSize(bytes){
 }
 
 refreshList();
+loadProcesses();
 </script>
 </body>
 </html>
