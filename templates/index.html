@@ -11,12 +11,12 @@
 <body>
 <div class="chat-shell">
     <div class="chat-topbar">
-      <div class="brand">Asistente IA RAG 📚</div>
+      <div class="brand">Asistente NeuroByte-IA</div>
     </div>
 
     <div class="chat-container">
       <section>
-        <h2 class="section-title">Chat / Análisis</h2>
+        <h2 class="section-title">Analizador de documentos</h2>
 
         <!-- NUEVO: selector de proceso -->
         <div class="row">
@@ -28,14 +28,21 @@
         </div>
 
         <div class="row">
-          <input id="q" class="input" type="text" placeholder="Pregunta o instrucciones..." />
+          <input id="q" class="input" type="text" placeholder="Pregunta sobre el proceso aqui! ... (Opcional)" />
           <button id="ask" class="btn">Analizar</button>
         </div>
         <div id="chat" class="chat-box"></div>
       </section>
+      <!-- Barra de progreso (autosuficiente) -->
+      <div id="pwrap" style="display:none; margin-top:12px;">
+        <div style="height:10px;background:#16213a;border-radius:10px;overflow:hidden;">
+          <div id="pbar" style="height:10px;width:0%;background:#46a6ff;transition:width .25s ease;"></div>
+        </div>
+        <div id="ptext" style="font-size:.9rem;margin-top:6px;opacity:.85;">Preparando…</div>
+      </div>
 
       <section class="u-mt">
-        <h2 class="section-title">Subir PDFs (oferente)</h2>
+        <h2 class="section-title">Cargar documentos</h2>
         <div class="row">
           <input id="files" type="file" accept="application/pdf" multiple />
           <button id="upload" class="btn">Subir</button>
@@ -182,59 +189,75 @@ $process.addEventListener("change", () => {
 
 // ===== Events =====
 document.getElementById("ask").onclick = async () => {
-  const query = $q.value.trim();
-  if (!query) return;
-  addUser(query);
-  $q.value = "";
+  const btn = document.getElementById("ask");
+  const query = $q.value.trim();            // puede ir vacío
+  const process = getSelectedProcess();      // toma del combo "Tipo de proceso"
 
-  const process = getSelectedProcess();
+  // pinta el mensaje del usuario solo si escribió algo
+  if (query) addUser(query);
+
+  btn.disabled = true;
+  startProgress();
 
   try {
+    // Llama al backend aunque query esté vacío (usa el prompt por defecto del backend)
     const data = await apiPost("/api/chat", { query, process });
     const r1 = data?.respuesta1;
     const r2 = data?.respuesta2;
 
-    if (r1 || r2) {
-      // 1) Narrativa por archivo (Respuesta1)
-      if (r1?.por_archivo?.length) {
-        r1.por_archivo.forEach(({ archivo, texto }) => {
-          const nice = [
-            `🗂️ ${archivo || "Oferta_sin_nombre"}`,
-            "", // spacer
-            texto || "—",
-          ].join("\n");
-          addBot(escapeHtml(nice));
-        });
-      } else {
-        addBot("🤷 No hay narrativa para mostrar.");
-      }
+    // ——— Header compacto con semáforo por archivo + comparativo ——
+    // lee semáforos desde respuesta2
+    const sems = (r2?.por_archivo || []).map(x => {
+      const arch = x?.archivo || "Oferta";
+      const sem  = (x?.json?.semaforo || "").toLowerCase();
+      const color =
+        sem === "aprobado"   ? "#2ecc71" :
+        sem === "faltan_requisitos"? "#f1c40f" :
+        sem === "no_cumple"    ? "#e74c3c" : "#7f8c8d";
+      return `<span style="display:inline-block;padding:.1rem .5rem;border-radius:999px;background:${color}22;border:1px solid ${color};margin:.15rem .25rem .15rem 0">
+        <b style="color:${color}">${sem||"N/D"}</b> — ${escapeHtml(arch)}
+      </span>`;
+    }).join("");
 
-      // 1b) Comparativo global (si existe)
-      if (r1?.comparativo) {
-        const compStr = JSON.stringify(r1.comparativo, null, 2);
-        addBot("📊 Comparativo global:\n" + escapeHtml(compStr));
-      }
+    // comparativo texto
+    const compTxt = r1?.comparativo_texto ? `<div style="margin:.25rem 0 .5rem 0"><b>Comparativo:</b> ${escapeHtml(r1.comparativo_texto)}</div>` : "";
 
-      // 2) JSON por archivo (Respuesta2)
-      if (r2?.por_archivo?.length) {
-        r2.por_archivo.forEach(({ archivo, json }) => {
-          const jsonStr = JSON.stringify(json ?? {}, null, 2);
-          const pretty = [
-            `🧾 JSON (decisión) — ${archivo || "Oferta_sin_nombre"}`,
-            jsonStr
-          ].join("\n");
-          addBot(escapeHtml(pretty));
-        });
-      } else {
-        addBot("🧩 No se generó JSON de decisión.");
-      }
-      return;
+    if (sems || compTxt) {
+      addBot(`<div>${sems}${compTxt}</div>`);
+    }
+
+    if (r1?.por_archivo?.length) {
+      r1.por_archivo.forEach(({ archivo, texto }) => {
+        const nice = [`🗂️ ${archivo || "Oferta_sin_nombre"}`, "", texto || "—"].join("\n");
+        addBot(escapeHtml(nice));
+      });
+    } else {
+      addBot("🤷 No hay narrativa para mostrar.");
+    }
+
+    if (r1?.comparativo_texto) {
+      addBot("📊 Comparativo:\n" + escapeHtml(r1.comparativo_texto));
+    } else if (r1?.comparativo) {
+      addBot("📊 Comparativo:\n" + escapeHtml(JSON.stringify(r1.comparativo, null, 2)));
+    }
+
+    if (r2?.por_archivo?.length) {
+      r2.por_archivo.forEach(({ archivo, json }) => {
+        const jsonStr = JSON.stringify(json ?? {}, null, 2);
+        addBot(escapeHtml(`🧾 JSON (decisión) — ${archivo || "Oferta_sin_nombre"}\n${jsonStr}`));
+      });
+    } else {
+      addBot("🧩 No se generó JSON de decisión.");
     }
   } catch (e) {
     addBot(`⚠️ Error /api/chat<br>${escapeHtml(e.message)}`);
+  } finally {
+    stopProgress(true);
+    btn.disabled = false;
+    $q.value = ""; // limpia el campo
   }
-
 };
+
 
 document.getElementById("upload").onclick = async ()=>{
   const files = $files.files;
@@ -275,9 +298,49 @@ function humanSize(bytes){
   while(n >= 1024 && i < units.length-1){ n/=1024; i++; }
   return `${n.toFixed(n >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
+// === Progreso (inline, sin tocar tu CSS global) ===
+function startProgress(){
+  const wrap = document.getElementById('pwrap'); if (!wrap) return;
+  wrap.style.display='block';
+  setProgress(5, 'Preparando…');
+
+  // simulación por fases hasta 90% mientras esperamos
+  const phases = [
+    {to: 20, text: 'Leyendo archivos…'},
+    {to: 45, text: 'Indexando oferta…'},
+    {to: 70, text: 'Seleccionando BASE…'},
+    {to: 90, text: 'Construyendo contexto…'}
+  ];
+  let idx = 0;
+  window.__pTimer && clearInterval(window.__pTimer);
+  window.__pPct = 5;
+
+  window.__pTimer = setInterval(()=>{
+    const target = phases[Math.min(idx, phases.length-1)].to;
+    if (window.__pPct < target) {
+      window.__pPct = Math.min(target, window.__pPct + 2);
+      setProgress(window.__pPct, phases[idx].text);
+    } else {
+      idx = Math.min(idx+1, phases.length-1);
+    }
+  }, 300);
+}
+function setProgress(pct, text){
+  const bar = document.getElementById('pbar'); if (bar) bar.style.width = pct + '%';
+  const txt = document.getElementById('ptext'); if (txt && text) txt.textContent = text;
+}
+function stopProgress(ok=true){
+  window.__pTimer && clearInterval(window.__pTimer);
+  setProgress(100, ok ? 'Análisis completado' : 'Error en el análisis');
+  const wrap = document.getElementById('pwrap');
+  if (wrap) setTimeout(()=>{ wrap.style.display='none'; setProgress(0,''); }, 900);
+}
 
 refreshList();
 loadProcesses();
 </script>
+
+
+
 </body>
 </html>
