@@ -7,8 +7,8 @@ from typing import List, Dict, Any, Optional, Tuple
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from starlette.status import HTTP_400_BAD_REQUEST
 from pydantic import BaseModel
+from fastapi import Response
 
 # ---- LangChain / OpenAI / Vector ---- (SE MANTIENEN TUS LIBRERÍAS)
 from langchain_openai import ChatOpenAI
@@ -19,6 +19,7 @@ from langchain.schema import Document
 from langchain.chains import RetrievalQA
 from langchain.memory import ConversationBufferMemory
 import asyncio
+
 
 # ---- HTTP / RUC ----
 import httpx
@@ -31,6 +32,12 @@ import pytesseract
 
 # ---- YAML (NUEVO)
 import yaml
+import hashlib
+
+# ===== Estado del último análisis (/chat) =====
+ANALYSIS_LOCK = asyncio.Lock()
+LAST_ANALYSIS_DATA: Dict[str, Any] = None  # guarda el JSON de análisis final
+ANALYSIS_DONE: bool = False                # indica si ya hay análisis para el set actual
 
 # =========================
 # Settings
@@ -82,6 +89,10 @@ class Settings:
         ("CONSORCIO_COMPROMISO", r"(compromiso).*(asociaci[oó]n|consorcio)"),
         ("SUBASTA_INVERSA_PLIEGO", r"subasta\s+inversa\s+electr[oó]nica"),
     ]
+
+    STRICT_BASE = os.getenv("STRICT_BASE", "false").lower() == "true"
+    K_BASE = int(os.getenv("K_BASE", "8"))
+    K_UP = int(os.getenv("K_UP", "8"))
 
 S = Settings()
 
@@ -424,59 +435,6 @@ async def fetch_ruc_info(ruc: str) -> Dict[str, Any]:
         "raw": None
     }
 
-# =========================
-# Análisis comparativo
-# =========================
-ANALYSIS_SYSTEM_PROMPT = """Eres un experto en licitaciones y contratación pública.  
-Analiza los documentos subidos por el usuario (OFERTA) comparándolos con los documentos de la base de conocimiento (BASE) que correspondan a su tipo.  
-Tu objetivo es generar un análisis completo en formato JSON siguiendo exactamente el esquema proporcionado.
-
-### Instrucciones:
-1. **Segmenta** el contenido de la OFERTA en secciones:  
-   - legales  
-   - técnicas  
-   - económicas  
-   - otros  
-
-2. **Compara** cada sección con los documentos base del mismo tipo de documento.  
-   Usa las diferencias y similitudes para construir:
-   - Cumplimiento por requisito (OK, PARCIAL, NO) con breve evidencia y fuente (oferente o base).
-   - Riesgos y cláusulas sensibles: multas, garantías, plazos, ambigüedades.  
-     Marca critico como true si el riesgo es alto.
-   - Diferencias clave: indicar tema (plazo, monto, garantias, otros), contenido en base y en oferta, y su impacto (bajo, medio, alto).
-   - Recomendaciones y cláusulas faltantes.
-
-3. **RUC**: El sistema obtendrá esta información automáticamente para cada documento; debes incluir la clave "ruc_validacion" en tu salida, con el siguiente formato:
-Devuelve SIEMPRE un JSON *válido* con este esquema:
-
-{
-  "resumen": "...",
-  "secciones": {
-    "legales": ["..."],
-    "tecnicas": ["..."],
-    "economicas": ["..."],
-    "otros": ["..."]
-  },
-  "cumplimiento": [
-    {"requisito": "...", "estado": "OK|PARCIAL|NO", "evidencia": "...", "fuente": "oferente|base"}
-  ],
-  "riesgos": [
-    {"tipo": "legal|tecnico|economico", "detalle": "...", "critico": true|false}
-  ],
-  "diferencias_clave": [
-    {"tema": "plazo|monto|garantias|otros", "base": "...", "oferente": "...", "impacto": "bajo|medio|alto"}
-  ],
-  "recomendaciones": ["..."],
-  "ruc_validacion": {
-    "ruc": "...",
-    "nombre": "...",
-    "habilitado": true|false|null,
-    "notas": "..."
-  }
-}
-Si algo no aplica, usa listas vacías o null. NO inventes datos si no hay evidencia.
-"""
-
 def json_guard(s: str) -> Dict[str, Any]:
     try:
         return json.loads(s)
@@ -506,17 +464,38 @@ def startup_index_base():
     # Indexar la BASE con facetas/bundles de YAML (árbol completo)
     index_knowledge_tree(S.KNOWLEDGE_DIR, S.BASE_COLLECTION)
 
-    # Limpiar carpeta uploads y sincronizar índice
-    if os.path.exists(S.UPLOAD_DIR):
-        for filename in os.listdir(S.UPLOAD_DIR):
-            filepath = os.path.join(S.UPLOAD_DIR, filename)
-            try:
-                if os.path.isfile(filepath) or os.path.islink(filepath):
-                    os.unlink(filepath)
-                elif os.path.isdir(filepath):
-                    shutil.rmtree(filepath)
-            except Exception:
-                print('')
+    # 1) Limpiar carpeta uploads en disco
+    try:
+        if S.UPLOAD_DIR.exists():
+            for filename in os.listdir(S.UPLOAD_DIR):
+                filepath = S.UPLOAD_DIR / filename
+                try:
+                    if filepath.is_file() or filepath.is_symlink():
+                        filepath.unlink()
+                    elif filepath.is_dir():
+                        shutil.rmtree(filepath)
+                except Exception:
+                    pass
+        else:
+            S.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"No se pudo limpiar uploads: {e}")
+    
+    # 2) Limpiar colección de uploads en Chroma
+    try:
+        vs = _ensure_chroma(S.UPLOADS_COLLECTION)
+        got = vs._collection.get(include=[])
+        ids = got.get("ids") or []
+        if ids:
+            vs._collection.delete(ids=ids)
+        try:
+            vs.persist()
+        except Exception:
+            pass
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"No se pudo limpiar índice de uploads: {e}")
+    
+    # 4) Sincronizar índice por si acaso
     sync_uploads_index()
 
 @app.get("/api/processes")
@@ -533,24 +512,101 @@ def list_processes():
             seen.add(key); out.append(p)
     return {"count": len(out), "items": out}
 
+# ===== Cache persistente del último análisis =====
+LAST_ANALYSIS: Dict[str, Any] = {}   # {"sig": "...", "ts": 123.4, "data": {...}}
+ANALYSIS_LOCK = asyncio.Lock()
+
+def _file_snapshot_for_dir(dirpath: Path) -> list[dict]:
+    items = []
+    for p in sorted(dirpath.glob("*.pdf"), key=lambda x: x.name.lower()):
+        try:
+            st = p.stat()
+            items.append({"name": p.name, "size": st.st_size, "mtime": int(st.st_mtime)})
+        except Exception:
+            items.append({"name": p.name, "size": None, "mtime": None})
+    return items
+
+def _kb_config_mtime() -> int:
+    cfg = S.KNOWLEDGE_DIR / "kb_config.yaml"
+    try:
+        return int(cfg.stat().st_mtime)
+    except Exception:
+        return 0
+
+def _stable_json(obj: Any) -> str:
+    return json.dumps(obj, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+
+def _uploads_signature_only() -> str:
+    """
+    Firma basada SOLO en el estado de los PDFs + kb_config + modelos/prompt.
+    Así, si ya hubo análisis para este estado, lo reutilizamos SIEMPRE,
+    sin importar el prompt nuevo.
+    """
+    snapshot = {
+        "uploads": _file_snapshot_for_dir(S.UPLOAD_DIR),
+        "kb_config_mtime": _kb_config_mtime(),
+        "chat_model": S.CHAT_MODEL,
+        "embedding_model": S.EMBEDDING_MODEL,
+        "strict_base": S.STRICT_BASE,
+        "k_base": S.K_BASE,
+        "k_up": S.K_UP,
+        "prompt_hash": hashlib.sha256(UNIFIED_MASTER_PROMPT.encode("utf-8")).hexdigest(),
+    }
+    raw = _stable_json(snapshot)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
 @app.post("/api/chat")
 async def chat_endpoint(req: ChatRequest):
     """
-    Un solo prompt para todo:
-    - respuesta1: narrativa por archivo (texto humano) + comparativo en texto
-    - respuesta2: JSON de decisión por archivo (procesoId, referencia, requisitos, oferentes, pesosCategoria)
+    Si aún no hay análisis para los archivos cargados, lo genera.
+    Si ya existe, responde usando el análisis cacheado (no re-analiza).
     """
     user_q = (req.query or "").strip() or "Evalúa cumplimiento por oferta, detecta brechas y acciones de mejora concretas."
     process_hint = req.process.dict() if req.process else None
 
-    # 1) Detectar ofertas vivas y construir contexto por oferta
+    global LAST_ANALYSIS_DATA, ANALYSIS_DONE
+
+    # ¿Ya hay análisis vigente para este set de archivos?
+    async with ANALYSIS_LOCK:
+        cached_analysis = LAST_ANALYSIS_DATA if ANALYSIS_DONE and LAST_ANALYSIS_DATA else None
+
+    if cached_analysis:
+        llm = make_llm(temperature=0.1)
+        followup_prompt = (
+            "Eres un analista de licitaciones. Debes responder ÚNICAMENTE "
+            "usando el análisis previo que te paso (ANALISIS_BASE). "
+            "NO reanalices documentos, NO inventes datos.\n\n"
+            "=== ANALISIS_BASE (JSON) ===\n"
+            f"{json.dumps(cached_analysis, ensure_ascii=False)}\n\n"
+            "=== PREGUNTA_DEL_USUARIO ===\n"
+            f"{user_q}\n\n"
+            "=== INSTRUCCIONES ===\n"
+            "- Responde en español, claro y conciso.\n"
+            "- Si algo NO está en ANALISIS_BASE, dilo explícitamente.\n"
+            "- Puedes citar elementos de 'respuesta1.por_archivo', 'comparativo_texto' o 'respuesta2.por_archivo'.\n"
+            "- No devuelvas JSON; responde en texto natural.\n"
+        )
+        resp = await llm.ainvoke(followup_prompt)
+
+        # Devolvemos JSON para no tocar apiPost
+        return {
+            "respuesta_chat": resp.content,
+            "_source": "cache-followup"
+        }
+
+    # Si no hay análisis, lo generamos ahora
     vs_up = _ensure_chroma(S.UPLOADS_COLLECTION)
     live_stems = sorted({Path(p.name).stem for p in S.UPLOAD_DIR.glob("*.pdf")})
     if not live_stems:
-        return {
+        result = {
             "respuesta1": {"por_archivo": [], "comparativo_texto": "Sin datos."},
             "respuesta2": {"por_archivo": []}
         }
+        async with ANALYSIS_LOCK:
+            LAST_ANALYSIS_DATA = result
+            ANALYSIS_DONE = True
+        return {**result, "_source": "fresh"}
 
     async def build_ctx_for_stem(stem: str, k_base: int = 8, k_up: int = 8) -> Tuple[str, dict, dict]:
         # metadatos de la oferta en índice
@@ -601,15 +657,17 @@ async def chat_endpoint(req: ChatRequest):
     data = json_guard(resp.content)
 
     # 4) Validaciones mínimas y rellenos seguros
-    # Esperamos exactamente "respuesta1" y "respuesta2"
     if not isinstance(data, dict):
-        return {
+        result = {
             "respuesta1": {"por_archivo": [], "comparativo_texto": "No se pudo estructurar el análisis."},
             "respuesta2": {"por_archivo": []},
             "raw": resp.content
         }
+        async with ANALYSIS_LOCK:
+            LAST_ANALYSIS_DATA = result
+            ANALYSIS_DONE = True
+        return {**result, "_source": "fresh"}
 
-    # Asegurar estructura esperada
     data.setdefault("respuesta1", {})
     data.setdefault("respuesta2", {})
     data["respuesta1"].setdefault("por_archivo", [])
@@ -629,82 +687,39 @@ async def chat_endpoint(req: ChatRequest):
     except Exception:
         pass
 
-    return data
+    # Guardar en cache como análisis vigente y devolver
+    async with ANALYSIS_LOCK:
+        LAST_ANALYSIS_DATA = data
+        ANALYSIS_DONE = True
 
+    return {**data, "_source": "fresh"}
 
-    # === Análisis por oferta: contexto más afinado con picker YAML ===
-    async def build_context_for_offer_config(stem: str, k_base: int = 8, k_up: int = 8) -> str:
-        vs_up = _ensure_chroma(S.UPLOADS_COLLECTION)
-        live = list(S.UPLOAD_DIR.glob(f"{stem}*.pdf"))
-
-        meta = vs_up._collection.get(where={"source": {"$in": [p.name for p in live]}}, include=["metadatas"])
-        m = (meta.get("metadatas") or [None])[0] or {}
-
-        # OFERTA (chunks del mismo stem)
-        up_ret = vs_up.as_retriever(
-            search_type="mmr",
-            search_kwargs={"k": k_up, "fetch_k": 40, "filter": {"source": {"$in": [p.name for p in live]}}}
-        )
-        up_docs = up_ret.get_relevant_documents(user_q)
-
-        # BASE (picker por YAML)
-        base_docs = pick_base_docs_for_upload(user_q, m, k_per_role=max(1, k_base // 3), process_hint=process_hint)
-
-        parts = []
-        for d in base_docs:
-            parts.append(f"\n### DOC: {Path(d.metadata['source']).stem} (BASE)\n{d.page_content}\n")
-        for d in up_docs:
-            parts.append(f"\n### DOC: {Path(d.metadata['source']).stem} (OFERTA)\n{d.page_content}\n")
-        return "".join(parts)
-
-    async def analyze_offer_json(stem: str, ruc_info: dict) -> dict:
-        ctx_offer = await build_context_for_offer_config(stem, k_base=8, k_up=8)
-        anal_prompt = (
-            ANALYSIS_SYSTEM_PROMPT
-            + "\n\n# CONTEXTO RAG por OFERTA (BASE y OFERTA pertinentes):\n"
-            + ctx_offer[:150000]
-            + "\n\nDevuelve SOLO el JSON solicitado, sin texto adicional."
-        )
-        resp = await make_llm(temperature=0.0).ainvoke(anal_prompt)
-        anal = json_guard(resp.content)
-        anal["ruc_validacion"] = {
-            "ruc": ruc_info.get("ruc"),
-            "nombre": ruc_info.get("razon_social"),
-            "habilitado": ruc_info.get("habilitado"),
-            "notas": ruc_info.get("notas") or ruc_info.get("estado") or None
-        }
-        anal["_archivo"] = stem
-        return anal
-
-    per_offer_tasks = []
-    for item in por_oferta:
-        stem = Path((item.get("archivo") or "oferta")).stem
-        ruc_info = item.get("ruc_validacion") or {}
-        per_offer_tasks.append(analyze_offer_json(stem, ruc_info))
-
-    per_offer_analysis = await asyncio.gather(*per_offer_tasks) if per_offer_tasks else []
-
-    return {
-        "result": result_text,
-        "analysis": data,
-        "per_offer_analysis": per_offer_analysis
-    }
 
 @app.post("/api/upload-pdf")
 async def upload_pdf(files: List[UploadFile] = File(...)):
     if not files:
-        raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail="No se recibieron archivos.")
+        raise HTTPException(status_code=400, detail="No se recibieron archivos.")
+
+    # 3) Guardar e indexar nuevos archivos
     saved = []
     for f in files:
         if f.content_type not in ("application/pdf", "application/octet-stream"):
-            raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=f"{f.filename} no es PDF.")
+            raise HTTPException(status_code=400, detail=f"{f.filename} no es PDF.")
         safe = Path(f.filename).name
         dest = S.UPLOAD_DIR / safe
         with dest.open("wb") as out:
             shutil.copyfileobj(f.file, out)
         chunks = index_uploaded_pdf(dest, S.UPLOADS_COLLECTION)
         saved.append({"filename": safe, "chunks": chunks})
+
+    # 4) Sincronizar índice por si acaso
+    try:
+        sync_uploads_index()
+    except Exception:
+        pass
+
     return {"ok": True, "files": saved}
+
 
 @app.get("/api/list-pdf")
 async def list_pdf():
@@ -716,6 +731,53 @@ async def list_pdf():
             "size_bytes": p.stat().st_size
         })
     return {"count": len(files), "files": files}
+
+@app.get("/api/cambioTipoDoc")
+async def cambioTDoc():
+    # 1) Limpiar carpeta uploads en disco
+    try:
+        if S.UPLOAD_DIR.exists():
+            for filename in os.listdir(S.UPLOAD_DIR):
+                filepath = S.UPLOAD_DIR / filename
+                try:
+                    if filepath.is_file() or filepath.is_symlink():
+                        filepath.unlink()
+                    elif filepath.is_dir():
+                        shutil.rmtree(filepath)
+                except Exception:
+                    pass
+        else:
+            S.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"No se pudo limpiar uploads: {e}")
+    
+    # 2) Limpiar colección de uploads en Chroma
+    try:
+        vs = _ensure_chroma(S.UPLOADS_COLLECTION)
+        got = vs._collection.get(include=[])
+        ids = got.get("ids") or []
+        if ids:
+            vs._collection.delete(ids=ids)
+        try:
+            vs.persist()
+        except Exception:
+            pass
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"No se pudo limpiar índice de uploads: {e}")
+    
+    # 4) Sincronizar índice por si acaso
+    try:
+        sync_uploads_index()
+    except Exception:
+        pass
+
+    # 5) Resetear estado del análisis (nuevo set de archivos => nuevo análisis)
+    global LAST_ANALYSIS_DATA, ANALYSIS_DONE
+    async with ANALYSIS_LOCK:
+        LAST_ANALYSIS_DATA = None
+        ANALYSIS_DONE = False
+
+    return Response(status_code=204)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/", StaticFiles(directory="templates", html=True), name="front")
@@ -790,62 +852,6 @@ async def validate_ruc_for_offer(stem: str) -> Dict[str, Any]:
     except Exception as e:
         return {"ruc": ruc, "habilitado": None, "notas": f"Error consultando SRI: {e}"}
 
-GROUPED_ACTIONABLE_SCHEMA = """
-Devuelve SIEMPRE un JSON VÁLIDO con este esquema:
-
-{
-  "resumen_general": "<texto corto>",
-  "por_oferta": [
-    {
-      "archivo": "<NOMBRE_DE_LA_OFERTA_SIN_PDF>",
-      "estado": "SIN_INCONSISTENCIAS|CON_INCONSISTENCIAS|SIN_EVIDENCIA",
-      "ruc_validacion": {
-        "ruc": "<13 dígitos o null>",
-        "habilitado": true|false|null,
-        "razon_social": "<string|null>",
-        "estado": "<string|null>",
-        "actividad_principal": "<string|null>",
-        "tipo": "<string|null>",
-        "regimen": "<string|null>",
-        "notas": "<string>"
-      },
-      "inconsistencias": [
-        {
-          "requisito": "<texto corto del requisito detectado en la BASE>",
-          "evidencia_oferta": "<extracto o 'no encontrado'>",
-          "accion_concreta": "<qué debe añadir/modificar>",
-          "documento_base": "<NOMBRE_DOC_BASE_SIN_PDF|null>",
-          "tipo": "legal|tecnico|economico|otro"
-        }
-      ],
-      "cumplimientos": [
-        {
-          "requisito": "<texto corto del requisito de la BASE que sí se cumple>",
-          "evidencia_oferta": "<extracto que demuestra el cumplimiento>",
-          "documento_base": "<NOMBRE_DOC_BASE_SIN_PDF|null>",
-          "tipo": "legal|tecnico|economico|otro"
-        }
-      ],
-      "semaforo": "verde|amarillo|rojo"
-    }
-  ],
-  "comparativo": {
-    "mejor_cumplimiento": "<archivo o 'empate' o 'sin_datos'>",
-    "diferencias_relevantes": [
-      {"tema": "plazo|monto|garantias|otros", "detalle": "<texto>", "impacto": "bajo|medio|alto", "base": "<opcional>", "oferta": "<opcional>"}
-    ]
-  }
-}
-
-REGLAS:
-- Prohibido responder con “revisa el pliego”, “consulta el documento” o equivalentes.
-- No inventes requisitos: SOLO usa lo presente en el CONTEXTO RAG.
-- Si no hay evidencia suficiente en la base para evaluar un punto, marca el archivo como "SIN_EVIDENCIA" o la inconsistencia con "evidencia_oferta": "no encontrado" y "documento_base": null.
-- Cuando cites documentos (base u oferta), usa SOLO el nombre tras '### DOC:' (sin .pdf ni colección).
-- Calcula 'semaforo' así: verde=0 inconsistencias; amarillo=1-2 inconsistencias no críticas; rojo=3+ o inconsistencias críticas si se deduce del contexto.
-- Si una oferta no presenta inconsistencias, rellena 'cumplimientos' con 3–10 puntos concretos que SÍ cumple (cada uno con evidencia corta y referencia al documento base).
-"""
-
 def _and_filter(*clauses: dict) -> dict:
     clauses = [c for c in clauses if c]
     if not clauses:
@@ -858,20 +864,18 @@ def pick_base_docs_for_upload(
     query: str,
     upload_meta: dict,
     k_per_role: int = 3,
-    process_hint: Optional[dict] = None
+    process_hint: Optional[dict] = None,
+    strict: bool = S.STRICT_BASE
 ) -> list:
     """
-    Selecciona documentos BASE relevantes según:
-    - facetas YAML (familia/procedimiento/doc_role, bundles)
-    - hint opcional del front
+    Selecciona documentos BASE relevantes:
+    - Modo estricto: SOLO (familia, procedimiento, doc_role) según bundle. Sin fallbacks.
+    - Modo normal: mantiene tus fallbacks actuales.
     """
     vs_base = _ensure_chroma(S.BASE_COLLECTION)
 
     familia = (process_hint or {}).get("familia") or (upload_meta or {}).get("familia")
     proc    = (process_hint or {}).get("procedimiento") or (upload_meta or {}).get("procedimiento")
-
-    chosen = []
-    bundle = CFG.find_bundle(familia, proc)
 
     def fetch_by(where_filter, k=6):
         ret = vs_base.as_retriever(
@@ -880,95 +884,82 @@ def pick_base_docs_for_upload(
         )
         return ret.get_relevant_documents(query)
 
-    if bundle:
+    chosen = []
+    bundle = CFG.find_bundle(familia, proc)
+
+    if strict:
+        # ——— MODO ESTRICTO ———
+        if not (familia and proc and bundle):
+            return []  # sin facetas completas o sin bundle → nada
+
         roles = bundle.get("include_roles", [])
         for role in roles:
-            docs = fetch_by(
-                _and_filter(
-                    {"familia": {"$eq": familia}} if familia else None,
-                    {"procedimiento": {"$eq": proc}} if proc else None,
+            where_fp_role = {
+                "$and": [
+                    {"familia": {"$eq": familia}},
+                    {"procedimiento": {"$eq": proc}},
                     {"doc_role": {"$eq": role}}
-                ),
-                k=k_per_role
-            )
-            if not docs and familia:
+                ]
+            }
+            chosen.extend(fetch_by(where_fp_role, k=k_per_role))
+
+        # anexos opcionales estrictos
+        for role in bundle.get("also_include", []):
+            where_extra = {
+                "$and": [
+                    {"familia": {"$eq": familia}},
+                    {"procedimiento": {"$eq": proc}},
+                    {"doc_role": {"$eq": role}}
+                ]
+            }
+            chosen.extend(fetch_by(where_extra, k=1))
+    else:
+        # ——— MODO NORMAL (tu lógica original con fallbacks) ———
+        if bundle:
+            roles = bundle.get("include_roles", [])
+            for role in roles:
                 docs = fetch_by(
-                    _and_filter({"familia": {"$eq": familia}}, {"doc_role": {"$eq": role}}),
+                    _and_filter(
+                        {"familia": {"$eq": familia}} if familia else None,
+                        {"procedimiento": {"$eq": proc}} if proc else None,
+                        {"doc_role": {"$eq": role}}
+                    ),
                     k=k_per_role
                 )
-            if not docs:
-                docs = fetch_by({"doc_role": {"$eq": role}}, k=k_per_role)
-            chosen.extend(docs)
+                if not docs and familia:
+                    docs = fetch_by(
+                        _and_filter({"familia": {"$eq": familia}}, {"doc_role": {"$eq": role}}),
+                        k=k_per_role
+                    )
+                if not docs:
+                    docs = fetch_by({"doc_role": {"$eq": role}}, k=k_per_role)
+                chosen.extend(docs)
 
-        # anexos/plus
-        add_roles = bundle.get("also_include", [])
-        for role in add_roles:
-            chosen.extend(fetch_by({"doc_role": {"$eq": role}}, k=1))
-    else:
-        base_docs = []
-        if familia or proc:
-            where_fp = _and_filter(
-                {"familia": {"$eq": familia}} if familia else None,
-                {"procedimiento": {"$eq": proc}} if proc else None,
-            )
-            if where_fp:
-                base_docs = fetch_by(where_fp, k=10)
+            for role in bundle.get("also_include", []):
+                chosen.extend(fetch_by({"doc_role": {"$eq": role}}, k=1))
+        else:
+            base_docs = []
+            if familia or proc:
+                where_fp = _and_filter(
+                    {"familia": {"$eq": familia}} if familia else None,
+                    {"procedimiento": {"$eq": proc}} if proc else None,
+                )
+                if where_fp:
+                    base_docs = fetch_by(where_fp, k=10)
 
-        if not base_docs:
-            # fallback: normativa/modelos
-            base_docs = fetch_by({"kb_grupo": {"$in": ["01_normativa", "02_modelos_pliegos"]}}, k=10)
-        chosen.extend(base_docs)
+            if not base_docs:
+                base_docs = fetch_by({"kb_grupo": {"$in": ["01_normativa", "02_modelos_pliegos"]}}, k=10)
+            chosen.extend(base_docs)
 
     # dedup por 'source'
     seen, final = set(), []
     for d in chosen:
         s = (d.metadata or {}).get("source")
         if s and s not in seen:
-            seen.add(s); final.append(d)
+            seen.add(s)
+            final.append(d)
     return final
 
-def build_multi_offer_context(
-    query: str,
-    k_base: int = 8,
-    k_up: int = 8,
-    process_hint: Optional[dict] = None
-) -> Tuple[str, list[str]]:
-    vs_up = _ensure_chroma(S.UPLOADS_COLLECTION)
-    live = list(S.UPLOAD_DIR.glob("*.pdf"))
-    if not live:
-        return "", []
-
-    up_meta = vs_up._collection.get(where={"source": {"$in": [p.name for p in live]}}, include=["metadatas"])
-    metas = up_meta.get("metadatas") or []
-    by_stem: Dict[str, Dict[str, Any]] = {}
-    for m in metas:
-        if not m: continue
-        src = m.get("source") or ""
-        by_stem[Path(src).stem] = m
-
-    context_parts, offers = [], sorted(by_stem.keys())
-    for stem in offers:
-        # OFERTA (mismo stem)
-        up_ret = vs_up.as_retriever(
-            search_type="mmr",
-            search_kwargs={"k": k_up, "fetch_k": 40, "filter": {"source": {"$in": [p.name for p in live if Path(p).stem == stem]}}}
-        )
-        up_docs = up_ret.get_relevant_documents(query)
-        for d in up_docs:
-            context_parts.append(f"\n### DOC: {Path(d.metadata['source']).stem} (OFERTA)\n{d.page_content}\n")
-
-        # BASE (según YAML/hint)
-        base_docs = pick_base_docs_for_upload(query, by_stem[stem], k_per_role=max(1, k_base // 3), process_hint=process_hint)
-        for d in base_docs:
-            context_parts.append(f"\n### DOC: {Path(d.metadata['source']).stem} (BASE)\n{d.page_content}\n")
-
-    return "".join(context_parts), offers
-
-
-
-# =========================
-# Helpers para decisión "anti-fantasía"
-# =========================
 # =========================
 # Helpers para decisión "anti-fantasía"
 # =========================
@@ -1079,111 +1070,6 @@ def extract_candidates(ctx_offer: str, archivo_stem: str) -> dict:
             "nombres_posibles": [archivo_stem]  # fallback seguro
         }
     }
-
-
-DECISION_PROMPT_BASE = """
-Eres analista de licitaciones. Devuelve SOLO un JSON **válido** EXACTAMENTE con esta estructura:
-
-{
-  "procesoId": "<string|null>",
-  "referencia": { "costo": <number|null>, "plazo_dias": <number|null> },
-  "requisitos": [
-    { "id": "R-001", "categoria": "Legal|Tecnica|Economica", "sub": "<string|null>", "texto": "<string>", "peso": <number>, "clausula": "<string|null>", "pagina": <number|null> }
-  ],
-  "oferentes": [
-    {
-      "id": "O1",
-      "nombre": "<string|null>",
-      "costo": <number|null>,
-      "plazo_dias": <number|null>,
-      "cumplimientos": [
-        { "reqId": "R-001", "estado": "CUMPLE|PARCIAL|NO CUMPLE" }
-      ],
-      "riesgos": [
-        { "nivel": "ALTO|MEDIO|BAJO", "clausula": "<string|null>", "pagina": <number|null>, "descripcion": "<string>" }
-      ]
-    }
-  ],
-  "pesosCategoria": { "Legal": <number>, "Tecnica": <number>, "Economica": <number> }
-}
-
-REGLAS ESTRICTAS (NO INVENTES):
-- Usa SOLO los CANDIDATOS_CONFIABLES provistos abajo; si el dato no está en esa lista, devuelve null (o [] según corresponda).
-- "procesoId" debe salir EXACTAMENTE de CANDIDATOS_CONFIABLES.base.procesoIds; si está vacía → null.
-- "referencia": costo/plazo SOLO de CANDIDATOS_CONFIABLES.base.(costos|plazos_dias); si nada coincide → null.
-- "oferentes[0]": "nombre" SOLO de CANDIDATOS_CONFIABLES.oferta.nombres_posibles; "costo"/"plazo_dias" SOLO de CANDIDATOS_CONFIABLES.oferta.(costos|plazos_dias).
-- "requisitos": cada "texto" debe ser una **cita literal** de CANDIDATOS_CONFIABLES.base.req_samples. No parafrasear. No inventar. 5–20 ítems si hay suficientes.
-- "clausula" intenta mapear usando CANDIDATOS_CONFIABLES.base.clausulas o pon null.
-- "peso": si no hay criterio explícito, usa 1.0; rango permitido [0.5, 2.0].
-- "cumplimientos": determina CUMPLE/PARCIAL/NO CUMPLE comparando la frase literal del requisito con el contenido OFERTA; si no hay evidencia → "NO CUMPLE".
-- "pesosCategoria": si no hay información explícita, usa { "Legal":0.4, "Tecnica":0.4, "Economica":0.2 }.
-"""
-
-def _sanitize_decision_with_candidates(decision: dict, cands: dict) -> dict:
-    d = dict(decision or {})
-    base_c = cands.get("base", {})
-    of_c   = cands.get("oferta", {})
-
-    # procesoId
-    if d.get("procesoId") not in (base_c.get("procesoIds") or []):
-        d["procesoId"] = None
-
-    # referencia
-    ref = d.get("referencia") or {}
-    if ref.get("costo") not in (base_c.get("costos") or []):
-        ref["costo"] = None
-    if ref.get("plazo_dias") not in (base_c.get("plazos_dias") or []):
-        ref["plazo_dias"] = None
-    d["referencia"] = ref
-
-    # oferente 0
-    ofs = d.get("oferentes") or []
-    if ofs:
-        of0 = dict(ofs[0])
-        if of0.get("nombre") not in (of_c.get("nombres_posibles") or []):
-            of0["nombre"] = (of_c.get("nombres_posibles") or [None])[0]
-        if of0.get("costo") not in (of_c.get("costos") or []):
-            of0["costo"] = None
-        if of0.get("plazo_dias") not in (of_c.get("plazos_dias") or []):
-            of0["plazo_dias"] = None
-        ofs[0] = of0
-        d["oferentes"] = ofs
-
-    # requisitos: texto debe estar en req_samples
-    allow = set((base_c.get("req_samples") or []))
-    reqs = []
-    for i, r in enumerate(d.get("requisitos") or [], start=1):
-        txt = (r or {}).get("texto") or ""
-        if txt in allow:
-            r = dict(r)
-            r["id"] = f"R-{i:03d}"
-            try:
-                w = float(r.get("peso", 1.0))
-                if not (0.5 <= w <= 2.0): r["peso"] = 1.0
-            except Exception:
-                r["peso"] = 1.0
-            reqs.append(r)
-    d["requisitos"] = reqs
-
-    # pesos por defecto
-    d.setdefault("pesosCategoria", {"Legal": 0.4, "Tecnica": 0.4, "Economica": 0.2})
-    return d
-
-async def build_decision_json_for_offer(stem: str, ctx_offer: str) -> dict:
-    cands = extract_candidates(ctx_offer, stem)
-    prompt = (
-        DECISION_PROMPT_BASE
-        + "\n\n# CANDIDATOS_CONFIABLES (elige EXCLUSIVAMENTE de aquí; si no hay, usa null/[]):\n"
-        + json.dumps(cands, ensure_ascii=False)
-        + "\n\n# CONTEXTO RAG (BASE y OFERTA pertinentes):\n"
-        + ctx_offer[:150000]
-        + "\n\nDevuelve SOLO el JSON solicitado, sin texto adicional."
-    )
-    resp = await make_llm(temperature=0.0).ainvoke(prompt)
-    raw = json_guard(resp.content) or {}
-    clean = _sanitize_decision_with_candidates(raw, cands)
-    clean["_archivo"] = stem
-    return clean
 
 # === PROMPT UNIFICADO (un solo llamado al LLM) ===
 UNIFIED_MASTER_PROMPT = """

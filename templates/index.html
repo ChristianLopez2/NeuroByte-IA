@@ -22,7 +22,6 @@
         <div class="row">
           <label for="process" class="tiny" style="min-width:160px">Tipo de proceso</label>
           <select id="process" class="input" style="max-width:520px">
-            <option value="auto">Detectar automáticamente</option>
             <!-- Se poblará con "Familia — Procedimiento" -->
           </select>
         </div>
@@ -37,7 +36,7 @@
       <section class="u-mt">
         <h2 class="section-title">Subir PDFs (oferente)</h2>
         <div class="row">
-          <input id="files" type="file" accept="application/pdf" multiple />
+          <input id="files" type="file" accept="application/pdf" />
           <button id="upload" class="btn">Subir</button>
           <span id="status" class="tiny"></span>
         </div>
@@ -60,6 +59,7 @@ const $list = document.getElementById("list");
 const $status = document.getElementById("status");
 
 const $process = document.getElementById("process");
+let lastProcessSelection = localStorage.getItem("processSelection") || "auto";
 
 function addMsg(text, cls="bot"){
   const div = document.createElement("div");
@@ -175,10 +175,28 @@ function getSelectedProcess(){
   try { return JSON.parse(v); } catch { return null; }
 }
 
-// guarda selección
-$process.addEventListener("change", () => {
-  localStorage.setItem("processSelection", $process.value || "auto");
+// guarda selección y notifica al backend
+$process.addEventListener("change", async () => {
+  const selected = $process.value || "auto";
+
+  try {
+    const res = await fetch(`${API_BASE}/api/cambioTipoDoc?process=${encodeURIComponent(selected)}`, {
+      method: "GET"
+    });
+
+    if (res.status === 204) {
+      localStorage.setItem("processSelection", selected);
+      lastProcessSelection = selected;
+      if ($chat) $chat.textContent = "";
+      $list.textContent = "No hay archivos aún.";
+    } else {
+      $process.value = lastProcessSelection;
+    }
+  } catch (e) {
+    $process.value = lastProcessSelection;
+  }
 });
+
 
 // ===== Events =====
 document.getElementById("ask").onclick = async () => {
@@ -191,6 +209,13 @@ document.getElementById("ask").onclick = async () => {
 
   try {
     const data = await apiPost("/api/chat", { query, process });
+
+    // 🆕 Caso: ya había análisis → backend devuelve { respuesta_chat: "..." }
+    if (typeof data?.respuesta_chat === "string" && data.respuesta_chat.trim()) {
+      addBot(escapeHtml(data.respuesta_chat));
+      return;
+    }
+
     const r1 = data?.respuesta1;
     const r2 = data?.respuesta2;
 
@@ -200,7 +225,7 @@ document.getElementById("ask").onclick = async () => {
         r1.por_archivo.forEach(({ archivo, texto }) => {
           const nice = [
             `🗂️ ${archivo || "Oferta_sin_nombre"}`,
-            "", // spacer
+            "",
             texto || "—",
           ].join("\n");
           addBot(escapeHtml(nice));
@@ -209,10 +234,9 @@ document.getElementById("ask").onclick = async () => {
         addBot("🤷 No hay narrativa para mostrar.");
       }
 
-      // 1b) Comparativo global (si existe)
-      if (r1?.comparativo) {
-        const compStr = JSON.stringify(r1.comparativo, null, 2);
-        addBot("📊 Comparativo global:\n" + escapeHtml(compStr));
+      // 1b) Comparativo global (tu backend usa comparativo_texto)
+      if (typeof r1?.comparativo_texto === "string" && r1.comparativo_texto.trim()) {
+        addBot("📊 Comparativo:\n" + escapeHtml(r1.comparativo_texto));
       }
 
       // 2) JSON por archivo (Respuesta2)
@@ -230,10 +254,11 @@ document.getElementById("ask").onclick = async () => {
       }
       return;
     }
+
+    addBot("😬 No llegaron datos útiles.");
   } catch (e) {
     addBot(`⚠️ Error /api/chat<br>${escapeHtml(e.message)}`);
   }
-
 };
 
 document.getElementById("upload").onclick = async ()=>{
