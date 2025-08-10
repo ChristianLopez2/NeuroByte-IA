@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard comparativo de ofertas</title>
+  <!-- Tu CSS existente -->
+  <link rel="stylesheet" href="/static/styles.css?v=1" />
+  <!-- Tabulator (tabla interactiva) -->
+  <link href="https://unpkg.com/tabulator-tables@5.6.2/dist/css/tabulator.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/tabulator-tables@5.6.2/dist/js/tabulator.min.js"></script>
+  <!-- Chart.js (gráficos) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    /* Pequeños utilitarios que respetan tu paleta con var(--*) */
+    .wrap{max-width:1200px;margin:0 auto;padding:20px}
+    .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+    .card{background:var(--card);border-radius:14px;padding:14px;box-shadow:0 8px 20px rgba(0,0,0,.25)}
+    .card h3{margin:0 0 6px 0;font-size:14px;color:var(--muted)}
+    .card .val{font-size:28px;font-weight:800;color:var(--ink)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+    .panel{background:var(--card);border-radius:14px;padding:14px;box-shadow:0 8px 20px rgba(0,0,0,.25)}
+    .filters{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:10px;margin:12px 0}
+    .filters select,.filters input{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:#0d1326;color:var(--ink)}
+    .chip{display:inline-block;padding:4px 10px;border-radius:999px;background:#0d1326;border:1px solid rgba(255,255,255,.08);font-size:12px;margin-right:6px}
+    .legend{display:flex;gap:8px;align-items:center;margin:10px 0}
+    .legend span{font-size:12px;color:var(--muted)}
+    .footer-note{opacity:.7;font-size:12px;margin-top:8px}
+    @media (max-width: 900px){.cards{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.filters{grid-template-columns:1fr 1fr}}
+    @media (max-width: 600px){.cards{grid-template-columns:1fr}.filters{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <div class="brand">Asistente IA RAG 📚</div>
+    <div class="legend"><span class="chip">Comparativo</span><span>Pliegos • Propuestas • Contratos</span></div>
+  </div>
+
+  <div class="wrap">
+    <!-- Filtros -->
+    <div class="panel">
+      <div class="filters">
+        <input id="procesoInput" placeholder="ID de proceso (p.ej. LIC-2025-001)" />
+        <select id="oferentesSelect" multiple></select>
+        <select id="categoriaSelect" multiple>
+          <option selected>Legal</option>
+          <option selected>Tecnica</option>
+          <option selected>Administrativa</option>
+        </select>
+        <select id="riesgoSelect">
+          <option value="ALL" selected>Riesgo: Todos</option>
+          <option value="ALTO">Riesgo Alto</option>
+          <option value="MEDIO">Riesgo Medio</option>
+          <option value="BAJO">Riesgo Bajo</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button id="btnCargar" class="chip">Cargar datos</button>
+        <button id="btnDemo" class="chip">Usar demo</button>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="cards" style="margin:16px 0">
+      <div class="card"><h3>Cumplimiento global</h3><div class="val" id="kpiCumplimiento">—</div></div>
+      <div class="card"><h3>Riesgos (A/M/B)</h3><div class="val" id="kpiRiesgos">—</div></div>
+      <div class="card"><h3>Costo vs ref.</h3><div class="val" id="kpiCosto">—</div></div>
+      <div class="card"><h3>Plazo vs ref.</h3><div class="val" id="kpiPlazo">—</div></div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="grid">
+      <div class="panel"><h3 style="margin:0 0 8px 0">Cumplimiento por categoría</h3><canvas id="radar"></canvas></div>
+      <div class="panel"><h3 style="margin:0 0 8px 0">Cumplimiento por sub‑categoría</h3><canvas id="barras"></canvas></div>
+    </div>
+
+    <!-- Tablas -->
+    <div class="grid" style="margin-top:16px">
+      <div class="panel">
+        <h3 style="margin:0 0 8px 0">Requisitos × Oferentes</h3>
+        <div id="tablaComparativa"></div>
+      </div>
+      <div class="panel">
+        <h3 style="margin:0 0 8px 0">Riesgos</h3>
+        <div id="tablaRiesgos"></div>
+      </div>
+    </div>
+    <div class="footer-note">Tip: haz clic en los encabezados para ordenar; usa Ctrl/Cmd en los selects para elegir múltiples oferentes/categorías.</div>
+  </div>
+
+  <script>
+    // ======= Utilidades =======
+    const pesosPorDefecto = { Legal:0.4, Tecnica:0.4, Administrativa:0.2 };
+
+    function scoreEstado(estado){
+      if(!estado) return 0;
+      const e = estado.toUpperCase();
+      if(e === 'CUMPLE') return 1;
+      if(e === 'PARCIAL') return 0.5;
+      return 0;
+    }
+
+    function calcularKPIs(data, oferentesFiltrados){
+      if(!data || !data.oferentes || data.oferentes.length === 0) return {};
+      const refC = data.referencia?.costo ?? null;
+      const refP = data.referencia?.plazo_dias ?? null;
+      const ofers = data.oferentes.filter(o=>oferentesFiltrados.includes(o.id));
+
+      // Cumplimiento promedio simple
+      let sum=0, n=0;
+      for(const o of ofers){
+        sum += calcularCumplimientoOferente(data, o);
+        n++;
+      }
+      const cumplimientoGlobal = n? (sum/n) : 0;
+
+      // Riesgos totales
+      let a=0,m=0,b=0; 
+      for(const o of ofers){
+        (o.riesgos||[]).forEach(r=>{
+          if(r.nivel==='ALTO') a++; else if(r.nivel==='MEDIO') m++; else b++;
+        })
+      }
+
+      // Costo y plazo: desviación mínima vs referencia
+      let mejorCosto = null, mejorPlazo = null;
+      if(refC!=null){
+        mejorCosto = Math.min(...ofers.map(o=>Math.abs((o.costo??refC)-refC)));
+      }
+      if(refP!=null){
+        mejorPlazo = Math.min(...ofers.map(o=>Math.abs((o.plazo_dias??refP)-refP)));
+      }
+
+      return {
+        cumplimientoGlobal,
+        riesgos: {a,m,b},
+        costo: {ref:refC, delta: mejorCosto},
+        plazo: {ref:refP, delta: mejorPlazo}
+      };
+    }
+
+    function calcularCumplimientoOferente(data, oferente){
+      const pesos = data.pesosCategoria || pesosPorDefecto;
+      const pesoTotal = Object.values(pesos).reduce((p,c)=>p+c,0) || 1;
+      let acumulado = 0, usado = 0;
+      for(const req of data.requisitos){
+        const catPeso = pesos[req.categoria] ?? 0;
+        const c = (oferente.cumplimientos||[]).find(c=>c.reqId===req.id);
+        acumulado += (scoreEstado(c?.estado) * catPeso * (req.peso ?? 1));
+        usado += (catPeso * (req.peso ?? 1));
+      }
+      const denom = usado || pesoTotal; // fallback
+      return (acumulado/denom) * 100;
+    }
+
+    function cumplimientoPorCategoria(data, oferente){
+      const grupos = {};
+      for(const req of data.requisitos){
+        grupos[req.categoria] ||= {sum:0,den:0};
+        const c = (oferente.cumplimientos||[]).find(x=>x.reqId===req.id);
+        grupos[req.categoria].sum += scoreEstado(c?.estado) * (req.peso??1);
+        grupos[req.categoria].den += (req.peso??1);
+      }
+      return Object.fromEntries(Object.entries(grupos).map(([k,v])=>[k, v.den? (v.sum/v.den)*100:0]));
+    }
+
+    function cumplimientoPorSub(data, oferente){
+      const grupos = {};
+      for(const req of data.requisitos){
+        const key = `${req.categoria} • ${req.sub||'—'}`;
+        grupos[key] ||= {sum:0,den:0};
+        const c = (oferente.cumplimientos||[]).find(x=>x.reqId===req.id);
+        grupos[key].sum += scoreEstado(c?.estado) * (req.peso??1);
+        grupos[key].den += (req.peso??1);
+      }
+      return Object.fromEntries(Object.entries(grupos).map(([k,v])=>[k, v.den? (v.sum/v.den)*100:0]));
+    }
+
+    // ======= Estado =======
+    let DATA = null;
+    let chartRadar = null, chartBarras = null;
+    let tablaComp = null, tablaRisk = null;
+
+    // ======= UI =======
+    const procesoInput = document.getElementById('procesoInput');
+    const oferentesSelect = document.getElementById('oferentesSelect');
+    const categoriaSelect = document.getElementById('categoriaSelect');
+    const riesgoSelect = document.getElementById('riesgoSelect');
+
+    document.getElementById('btnCargar').addEventListener('click', async()=>{
+      const pid = (procesoInput.value||'').trim();
+      if(!pid){ alert('Ingresa un ID de proceso'); return; }
+      //await cargarDesde(`/api/comparativo?procesoId=${encodeURIComponent(pid)}`);
+      await cargarDesde(`/static/comparativo.json`);
+
+    });
+    document.getElementById('btnDemo').addEventListener('click', ()=>{
+      DATA = demoData();
+      hidratarUI();
+    });
+
+    async function cargarDesde(url){
+      try{
+        const res = await fetch(url);
+        if(!res.ok) throw new Error(await res.text());
+        DATA = await res.json();
+        hidratarUI();
+      }catch(err){
+        console.error(err);
+        alert('No se pudo cargar el comparativo. Usa el demo para probar la UI.');
+      }
+    }
+
+    function hidratarUI(){
+      // Oferentes
+      oferentesSelect.innerHTML = '';
+      (DATA.oferentes||[]).forEach(o=>{
+        const opt = document.createElement('option');
+        opt.value = o.id; opt.textContent = o.nombre;
+        opt.selected = true; // por defecto todos
+        oferentesSelect.appendChild(opt);
+      });
+
+      renderKPIs();
+      renderRadar();
+      renderBarras();
+      renderTablas();
+    }
+
+    function seleccionados(select){
+      return Array.from(select.options).filter(o=>o.selected).map(o=>o.value);
+    }
+
+    function renderKPIs(){
+      const ofSel = seleccionados(oferentesSelect);
+      const k = calcularKPIs(DATA, ofSel);
+      document.getElementById('kpiCumplimiento').textContent = k.cumplimientoGlobal? `${k.cumplimientoGlobal.toFixed(1)}%` : '—';
+      document.getElementById('kpiRiesgos').textContent = `${k.riesgos?.a||0}/${k.riesgos?.m||0}/${k.riesgos?.b||0}`;
+      const cTxt = (k.costo?.ref!=null)? `Δ ${fmtNum(k.costo.delta)} vs ${fmtNum(k.costo.ref)}` : '—';
+      const pTxt = (k.plazo?.ref!=null)? `Δ ${k.plazo.delta} d vs ${k.plazo.ref} d` : '—';
+      document.getElementById('kpiCosto').textContent = cTxt;
+      document.getElementById('kpiPlazo').textContent = pTxt;
+    }
+
+    function renderRadar(){
+      const ctx = document.getElementById('radar');
+      chartRadar?.destroy();
+      const ofSel = seleccionados(oferentesSelect);
+      const cats = Array.from(new Set((DATA.requisitos||[]).map(r=>r.categoria)));
+      const datasets = ofSel.map((oid, idx)=>{
+        const of = DATA.oferentes.find(o=>o.id===oid);
+        const porCat = cumplimientoPorCategoria(DATA, of);
+        return {
+          label: of.nombre,
+          data: cats.map(c=>porCat[c]||0),
+          fill: true,
+        };
+      });
+      chartRadar = new Chart(ctx, {
+        type:'radar',
+        data:{ labels: cats, datasets },
+        options:{ plugins:{legend:{labels:{color: getComputedStyle(document.body).getPropertyValue('--ink')||'#e7eefc'}}}, scales:{ r:{ suggestedMin:0, suggestedMax:100 } } }
+      });
+    }
+
+    function renderBarras(){
+      const ctx = document.getElementById('barras');
+      chartBarras?.destroy();
+      const ofSel = seleccionados(oferentesSelect);
+      const allKeys = new Set();
+      DATA.oferentes.forEach(o=>Object.keys(cumplimientoPorSub(DATA,o)).forEach(k=>allKeys.add(k)));
+      const keys = Array.from(allKeys);
+      const datasets = ofSel.map((oid)=>{
+        const of = DATA.oferentes.find(o=>o.id===oid);
+        const porSub = cumplimientoPorSub(DATA, of);
+        return { label: of.nombre, data: keys.map(k=>porSub[k]||0) };
+      });
+      chartBarras = new Chart(ctx, {
+        type:'bar',
+        data:{ labels: keys, datasets },
+        options:{ responsive:true, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true, max:100}} }
+      });
+    }
+
+    function renderTablas(){
+      const ofSel = seleccionados(oferentesSelect);
+      const catsSel = seleccionados(categoriaSelect);
+      const riesgo = riesgoSelect.value;
+
+      // Comparativa req × oferentes
+      const cols = [
+        {title:"Requisito", field:"req", width:260},
+        {title:"Categoría", field:"cat", width:120},
+      ];
+      const nombres = {};
+      DATA.oferentes.forEach(o=>{nombres[o.id]=o.nombre});
+      ofSel.forEach(oid=>{
+        cols.push({title:nombres[oid]||oid, field:oid, hozAlign:"center", width:120});
+      });
+
+      const rows = (DATA.requisitos||[])
+        .filter(r=>catsSel.includes(r.categoria))
+        .map(r=>{
+          const row = { req:`${r.texto} (Cl. ${r.clausula})`, cat:r.categoria };
+          for(const oid of ofSel){
+            const of = DATA.oferentes.find(o=>o.id===oid);
+            const c = (of.cumplimientos||[]).find(x=>x.reqId===r.id);
+            row[oid] = etiquetaEstado(c?.estado);
+          }
+          return row;
+        });
+
+      if(!tablaComp){
+        tablaComp = new Tabulator('#tablaComparativa', {
+          height: 380,
+          data: rows,
+          layout: 'fitColumns',
+          columns: cols,
+        });
+      }else{
+        tablaComp.setColumns(cols);
+        tablaComp.setData(rows);
+      }
+
+      // Riesgos
+      const riesgoRows = DATA.oferentes
+        .filter(o=>ofSel.includes(o.id))
+        .flatMap(o=> (o.riesgos||[]).map(r=>({
+          oferente: o.nombre,
+          nivel: r.nivel,
+          clausula: r.clausula,
+          pagina: r.pagina,
+          descripcion: r.descripcion
+        })))
+        .filter(r=> riesgo==='ALL' || r.nivel===riesgo);
+
+      if(!tablaRisk){
+        tablaRisk = new Tabulator('#tablaRiesgos', {
+          height: 380,
+          data: riesgoRows,
+          layout: 'fitColumns',
+          columns: [
+            {title:'Oferente', field:'oferente'},
+            {title:'Nivel', field:'nivel'},
+            {title:'Cláusula', field:'clausula'},
+            {title:'Página', field:'pagina'},
+            {title:'Descripción', field:'descripcion', widthGrow:2},
+          ]
+        });
+      }else{
+        tablaRisk.setData(riesgoRows);
+      }
+    }
+
+    function etiquetaEstado(est){
+      const e = (est||'NO CUMPLE').toUpperCase();
+      const map = { 'CUMPLE':'✔️', 'PARCIAL':'➗', 'NO CUMPLE':'❌' };
+      return map[e] || '❌';
+    }
+
+    const fmtNum = n => (n==null||Number.isNaN(n))? '—' : new Intl.NumberFormat('es-EC').format(Math.round(n));
+
+    // Demo embebido
+    function demoData(){
+      return {
+        procesoId: "LIC-2025-001",
+        referencia: { costo: 100000, plazo_dias: 60 },
+        requisitos: [
+          { id:"R-001", categoria:"Legal", sub:"Habilitantes", texto:"RUC vigente", peso:1.0, clausula:"2.1", pagina:5 },
+          { id:"R-002", categoria:"Tecnica", sub:"Experiencia", texto:"3 contratos similares", peso:1.2, clausula:"3.4", pagina:12 },
+          { id:"R-003", categoria:"Administrativa", sub:"Garantías", texto:"Garantía de seriedad de oferta", peso:1.0, clausula:"4.2", pagina:18 }
+        ],
+        oferentes: [
+          {
+            id:"O1", nombre:"Proveedor A", costo:98000, plazo_dias:55,
+            cumplimientos:[
+              {reqId:"R-001", estado:"CUMPLE"},
+              {reqId:"R-002", estado:"PARCIAL"},
+              {reqId:"R-003", estado:"NO CUMPLE"}
+            ],
+            riesgos:[
+              {nivel:"ALTO", clausula:"5.2", pagina:23, descripcion:"No acepta multas por mora"},
+              {nivel:"MEDIO", clausula:"3.4", pagina:12, descripcion:"Experiencia insuficiente"}
+            ]
+          },
+          {
+            id:"O2", nombre:"Proveedor B", costo:104000, plazo_dias:60,
+            cumplimientos:[
+              {reqId:"R-001", estado:"CUMPLE"},
+              {reqId:"R-002", estado:"CUMPLE"},
+              {reqId:"R-003", estado:"CUMPLE"}
+            ],
+            riesgos:[]
+          }
+        ],
+        pesosCategoria: { Legal:0.4, Tecnica:0.4, Administrativa:0.2 }
+      };
+    }
+
+    // Arranque con demo para que veas el look & feel con tu CSS
+    DATA = demoData();
+    hidratarUI();
+
+    // Re-render al cambiar selects
+    oferentesSelect.addEventListener('change', ()=>{renderKPIs();renderRadar();renderBarras();renderTablas();});
+    categoriaSelect.addEventListener('change', ()=>{renderKPIs();renderRadar();renderBarras();renderTablas();});
+    riesgoSelect.addEventListener('change', ()=>{renderTablas();});
+  </script>
+</body>
+</html>

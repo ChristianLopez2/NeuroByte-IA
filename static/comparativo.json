@@ -1,0 +1,32 @@
+{
+  "procesoId": "LIC-2025-001",
+  "referencia": { "costo": 100000, "plazo_dias": 60 },
+  "requisitos": [
+    { "id":"R-001", "categoria":"Legal", "sub":"Habilitantes", "texto":"RUC vigente", "peso":1.0, "clausula":"2.1", "pagina":5 },
+    { "id":"R-002", "categoria":"Tecnica", "sub":"Experiencia", "texto":"3 contratos similares", "peso":1.2, "clausula":"3.4", "pagina":12 }
+  ],
+  "oferentes": [
+    {
+      "id":"O1", "nombre":"Proveedor A",
+      "costo": 98000, "plazo_dias": 55,
+      "cumplimientos":[
+        {"reqId":"R-001","estado":"CUMPLE","evidencia":"Certificado adjunto","enlace":"..."},
+        {"reqId":"R-002","estado":"PARCIAL","evidencia":"2 contratos","enlace":"..."}
+      ],
+      "riesgos":[
+        {"nivel":"ALTO","clausula":"5.2","pagina":23,"descripcion":"Multa no aceptada"},
+        {"nivel":"MEDIO","clausula":"3.4","pagina":12,"descripcion":"Experiencia insuficiente"}
+      ]
+    },
+    {
+      "id":"O2","nombre":"Proveedor B",
+      "costo": 104000, "plazo_dias": 60,
+      "cumplimientos":[
+        {"reqId":"R-001","estado":"CUMPLE"},
+        {"reqId":"R-002","estado":"CUMPLE"}
+      ],
+      "riesgos":[]
+    }
+  ],
+  "pesosCategoria": {"Legal":0.4,"Tecnica":0.4,"Administrativa":0.2}
+}
