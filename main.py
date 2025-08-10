@@ -950,65 +950,6 @@ async def validate_ruc_for_offer(stem: str) -> Dict[str, Any]:
     except Exception as e:
         return {"ruc": ruc, "habilitado": None, "notas": f"Error consultando SRI: {e}"}
 
-<<<<<<< HEAD
-=======
-GROUPED_ACTIONABLE_SCHEMA = """
-Devuelve SIEMPRE un JSON VÁLIDO con este esquema:
-
-{
-  "resumen_general": "<texto corto>",
-  "por_oferta": [
-    {
-      "archivo": "<NOMBRE_DE_LA_OFERTA_SIN_PDF>",
-      "estado": "SIN_INCONSISTENCIAS|CON_INCONSISTENCIAS|SIN_EVIDENCIA",
-      "ruc_validacion": {
-        "ruc": "<13 dígitos o null>",
-        "habilitado": true|false|null,
-        "razon_social": "<string|null>",
-        "estado": "<string|null>",
-        "actividad_principal": "<string|null>",
-        "tipo": "<string|null>",
-        "regimen": "<string|null>",
-        "notas": "<string>"
-      },
-      "inconsistencias": [
-        {
-          "requisito": "<texto corto del requisito detectado en la BASE>",
-          "evidencia_oferta": "<extracto o 'no encontrado'>",
-          "accion_concreta": "<qué debe añadir/modificar>",
-          "documento_base": "<NOMBRE_DOC_BASE_SIN_PDF|null>",
-          "tipo": "legal|tecnico|economico|otro"
-        }
-      ],
-      "cumplimientos": [
-        {
-          "requisito": "<texto corto del requisito de la BASE que sí se cumple>",
-          "evidencia_oferta": "<extracto que demuestra el cumplimiento>",
-          "documento_base": "<NOMBRE_DOC_BASE_SIN_PDF|null>",
-          "tipo": "legal|tecnico|economico|otro"
-        }
-      ],
-      "semaforo": "aprobado|faltan_requisitos|no_cumple"
-    }
-  ],
-  "comparativo": {
-    "mejor_cumplimiento": "<archivo o 'empate' o 'sin_datos'>",
-    "diferencias_relevantes": [
-      {"tema": "plazo|monto|garantias|otros", "detalle": "<texto>", "impacto": "bajo|medio|alto", "base": "<opcional>", "oferta": "<opcional>"}
-    ]
-  }
-}
-
-REGLAS:
-- Prohibido responder con “revisa el pliego”, “consulta el documento” o equivalentes.
-- No inventes requisitos: SOLO usa lo presente en el CONTEXTO RAG.
-- Si no hay evidencia suficiente en la base para evaluar un punto, marca el archivo como "SIN_EVIDENCIA" o la inconsistencia con "evidencia_oferta": "no encontrado" y "documento_base": null.
-- Cuando cites documentos (base u oferta), usa SOLO el nombre tras '### DOC:' (sin .pdf ni colección).
-- Calcula 'semaforo' así: aprobado=0 inconsistencias; faltan_requisitos=1-2 inconsistencias no críticas; no_cumple=3+ o inconsistencias críticas si se deduce del contexto.
-- Si una oferta no presenta inconsistencias, rellena 'cumplimientos' con 3–10 puntos concretos que SÍ cumple (cada uno con evidencia corta y referencia al documento base).
-"""
-
->>>>>>> origin/Christian-Joaqui
 def _and_filter(*clauses: dict) -> dict:
     clauses = [c for c in clauses if c]
     if not clauses:
@@ -1352,7 +1293,6 @@ Devuelve UN ÚNICO JSON **válido** exactamente con esta forma:
 - BLOQUES_DE_ENTRADA (repite para cada archivo):
 {BLOQUES}
 """
-<<<<<<< HEAD
 
 def extract_text_head_from_bytes(pdf_bytes: bytes, max_chars: int = 6000, enable_ocr: bool = False) -> str:
     """
@@ -1512,5 +1452,3 @@ def _clean_filter(f):
         return f
 
 
-=======
->>>>>>> origin/Christian-Joaqui
