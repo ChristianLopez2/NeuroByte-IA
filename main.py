@@ -34,10 +34,15 @@ import pytesseract
 import yaml
 import hashlib
 
-# ===== Estado del último análisis (/chat) =====
-ANALYSIS_LOCK = asyncio.Lock()
-LAST_ANALYSIS_DATA: Dict[str, Any] = None  # guarda el JSON de análisis final
-ANALYSIS_DONE: bool = False                # indica si ya hay análisis para el set actual
+# ===== Cache por RUC (nuevo) =====
+# Guarda por RUC el análisis ya realizado (ítems de respuesta1/2 + comparativo).
+ANALYSIS_BY_RUC: Dict[str, Dict[str, Any]] = {}   # { ruc: { "r1_items": [...], "r2_items": [...], "comparativos": [str, ...] } }
+
+# Mapa de los uploads actuales a su RUC (para evitar re-extraerlo a cada rato)
+UPLOAD_RUC_INDEX: Dict[str, Optional[str]] = {}   # { filename.pdf: "1790012345001" }
+
+# Flag: permitir o no IA para extraer RUC cuando el regex no encuentre
+ENABLE_AI_RUC = True
 
 # =========================
 # Settings
@@ -498,6 +503,14 @@ def startup_index_base():
     # 4) Sincronizar índice por si acaso
     sync_uploads_index()
 
+    # 5) Resetear caches por RUC al iniciar
+    global ANALYSIS_BY_RUC, UPLOAD_RUC_INDEX, LAST_ANALYSIS_DATA, ANALYSIS_DONE
+    ANALYSIS_BY_RUC = {}
+    UPLOAD_RUC_INDEX = {}
+    LAST_ANALYSIS_DATA = None
+    ANALYSIS_DONE = False
+
+
 @app.get("/api/processes")
 def list_processes():
     procs = []
@@ -559,26 +572,75 @@ def _uploads_signature_only() -> str:
 @app.post("/api/chat")
 async def chat_endpoint(req: ChatRequest):
     """
-    Si aún no hay análisis para los archivos cargados, lo genera.
-    Si ya existe, responde usando el análisis cacheado (no re-analiza).
+    Ahora:
+    - Identifica RUC por cada upload.
+    - Solo analiza los que NO están cacheados.
+    - Combina resultados cacheados + nuevos en la respuesta.
     """
     user_q = (req.query or "").strip() or "Evalúa cumplimiento por oferta, detecta brechas y acciones de mejora concretas."
     process_hint = req.process.dict() if req.process else None
 
-    global LAST_ANALYSIS_DATA, ANALYSIS_DONE
+    # Archivos vivos
+    live_files = sorted([p.name for p in S.UPLOAD_DIR.glob("*.pdf")])
+    live_stems = [Path(n).stem for n in live_files]
 
-    # ¿Ya hay análisis vigente para este set de archivos?
-    async with ANALYSIS_LOCK:
-        cached_analysis = LAST_ANALYSIS_DATA if ANALYSIS_DONE and LAST_ANALYSIS_DATA else None
+    if not live_stems:
+        return {
+            "respuesta1": {"por_archivo": [], "comparativo_texto": "Sin datos."},
+            "respuesta2": {"por_archivo": []},
+            "_source": "fresh"
+        }
 
-    if cached_analysis:
+    # Mapear stems -> RUC y decidir cuáles requieren análisis
+    stems_to_analyze: list[str] = []
+    for stem in live_stems:
+        ruc = _get_ruc_for_stem(stem)
+        # actualizar índice filename->ruc si aplica
+        fn = _filename_for_stem(stem)
+        if fn and ruc:
+            async with ANALYSIS_LOCK:
+                if UPLOAD_RUC_INDEX.get(fn) != ruc:
+                    UPLOAD_RUC_INDEX[fn] = ruc
+        if not ruc or ruc not in ANALYSIS_BY_RUC:
+            stems_to_analyze.append(stem)
+
+    # === Si no hay nada que analizar, devolvemos solo cache agregado ===
+    if not stems_to_analyze:
+        cached_r1, cached_r2, comp = _collect_cached_items_for_current_uploads()
+
+        # Si de verdad no hay nada en caché, devolvemos el JSON clásico (o un mensaje)
+        if not cached_r1 and not cached_r2:
+            return {
+                "respuesta1": {"por_archivo": [], "comparativo_texto": "Sin datos en caché para los archivos actuales."},
+                "respuesta2": {"por_archivo": []},
+                "_source": "cache-empty"
+            }
+        
+        # Si no hay pregunta, devolvemos mensaje de estado
+        if not req.query or not req.query.strip():
+            return {
+                "mensaje": "Ningún documento pendiente de análisis, ¿necesitas revisar los análisis realizados?",
+                "_source": "cache-status"
+            }
+
+        # Armar el paquete de análisis base (lo que ya existe en caché)
+        cached_analysis = {
+            "respuesta1": {
+                "por_archivo": cached_r1,
+                "comparativo_texto": comp or ""
+            },
+            "respuesta2": {
+                "por_archivo": cached_r2
+            }
+        }
+
         llm = make_llm(temperature=0.1)
         followup_prompt = (
             "Eres un analista de licitaciones. Debes responder ÚNICAMENTE "
             "usando el análisis previo que te paso (ANALISIS_BASE). "
             "NO reanalices documentos, NO inventes datos.\n\n"
             "=== ANALISIS_BASE (JSON) ===\n"
-            f"{json.dumps(cached_analysis, ensure_ascii=False)}\n\n"
+            f"{json.dumps(cached_analysis, ensure_ascii=False, default=str)}\n\n"
             "=== PREGUNTA_DEL_USUARIO ===\n"
             f"{user_q}\n\n"
             "=== INSTRUCCIONES ===\n"
@@ -595,33 +657,19 @@ async def chat_endpoint(req: ChatRequest):
             "_source": "cache-followup"
         }
 
-    # Si no hay análisis, lo generamos ahora
-    vs_up = _ensure_chroma(S.UPLOADS_COLLECTION)
-    live_stems = sorted({Path(p.name).stem for p in S.UPLOAD_DIR.glob("*.pdf")})
-    if not live_stems:
-        result = {
-            "respuesta1": {"por_archivo": [], "comparativo_texto": "Sin datos."},
-            "respuesta2": {"por_archivo": []}
-        }
-        async with ANALYSIS_LOCK:
-            LAST_ANALYSIS_DATA = result
-            ANALYSIS_DONE = True
-        return {**result, "_source": "fresh"}
-
-    async def build_ctx_for_stem(stem: str, k_base: int = 8, k_up: int = 8) -> Tuple[str, dict, dict]:
-        # metadatos de la oferta en índice
+    # === Construir ctx SOLO para stems_to_analyze ===
+    async def build_ctx_for_stem(stem: str, k_base: int = 8, k_up: int = 8) -> Tuple[str, dict, dict, str]:
+        vs_up = _ensure_chroma(S.UPLOADS_COLLECTION)
         live = list(S.UPLOAD_DIR.glob(f"{stem}*.pdf"))
         meta = vs_up._collection.get(where={"source": {"$in": [p.name for p in live]}}, include=["metadatas"])
         up_meta = (meta.get("metadatas") or [None])[0] or {}
 
-        # Oferta (chunks del mismo stem)
         up_ret = vs_up.as_retriever(
             search_type="mmr",
             search_kwargs={"k": k_up, "fetch_k": 40, "filter": {"source": {"$in": [p.name for p in live]}}}
         )
-        up_docs = up_ret.get_relevant_documents(user_q)
+        up_docs = up_ret.invoke(user_q)
 
-        # Base (picker por YAML/hint)
         base_docs = pick_base_docs_for_upload(user_q, up_meta, k_per_role=max(1, k_base // 3), process_hint=process_hint)
 
         parts = []
@@ -631,68 +679,94 @@ async def chat_endpoint(req: ChatRequest):
             parts.append(f"\n### DOC: {Path(d.metadata['source']).stem} (OFERTA)\n{d.page_content}\n")
 
         ctx = "".join(parts)
-        # Candidatos "anti-fantasía" + RUC externo
         cands = extract_candidates(ctx, stem)
         ruc_info = await validate_ruc_for_offer(stem)
-        return ctx, cands, ruc_info
+        ruc = ruc_info.get("ruc")
+        return ctx, cands, ruc_info, ruc
 
-    tasks = [build_ctx_for_stem(stem) for stem in live_stems]
-    ctx_pack = await asyncio.gather(*tasks)
+    ctx_pack = await asyncio.gather(*[build_ctx_for_stem(stem) for stem in stems_to_analyze])
 
-    # 2) Armar BLOQUES para el prompt único
+    # 2) BLOQUES para prompt (solo nuevos)
     bloques_txt = []
-    for stem, (ctx, cands, ruc) in zip(live_stems, ctx_pack):
+    stems_order = []
+    rucs_for_new: Dict[str, str] = {}
+    for stem, (ctx, cands, ruc_info, ruc) in zip(stems_to_analyze, ctx_pack):
+        stems_order.append(stem)
+        if ruc:
+            rucs_for_new[stem] = ruc
         bloques_txt.append(
             f"\n=== OFERTA: {stem} ===\n"
             f"# CANDIDATOS_CONFIABLES\n{json.dumps(cands, ensure_ascii=False)}\n"
-            f"# RUC_VALIDACION\n{json.dumps(ruc, ensure_ascii=False)}\n"
+            f"# RUC_VALIDACION\n{json.dumps(ruc_info, ensure_ascii=False)}\n"
             f"# CONTEXTO RAG (recortado)\n{ctx[:150000]}\n"
         )
     bloques_joined = "\n".join(bloques_txt)
 
-    # 3) Un (1) llamado al LLM
+    # 3) LLM UNA VEZ para los nuevos
     llm = make_llm(temperature=0.0)
     prompt = UNIFIED_MASTER_PROMPT.replace("{USER_Q}", user_q).replace("{BLOQUES}", bloques_joined)
     resp = await llm.ainvoke(prompt)
-    data = json_guard(resp.content)
+    data_new = json_guard(resp.content)
 
-    # 4) Validaciones mínimas y rellenos seguros
-    if not isinstance(data, dict):
-        result = {
-            "respuesta1": {"por_archivo": [], "comparativo_texto": "No se pudo estructurar el análisis."},
-            "respuesta2": {"por_archivo": []},
-            "raw": resp.content
-        }
-        async with ANALYSIS_LOCK:
-            LAST_ANALYSIS_DATA = result
-            ANALYSIS_DONE = True
-        return {**result, "_source": "fresh"}
+    # 4) Guardar por RUC en cache
+    #   Intentamos mapear cada item por archivo -> ruc detectado en rucs_for_new; si no, no cacheamos por RUC.
+    if isinstance(data_new, dict):
+        r1_items = (data_new.get("respuesta1") or {}).get("por_archivo") or []
+        # Para cada item, inferimos el stem y luego ruc
+        by_stem_r1 = { (i or {}).get("archivo"): i for i in r1_items }
+        # Guardamos el paquete completo por RUC (uno por uno si hay varios RUC)
+        # Construimos mini-paquetes por RUC
+        ruc_packets: Dict[str, dict] = {}
+        for stem in stems_order:
+            ruc = rucs_for_new.get(stem) or _get_ruc_for_stem(stem)
+            if not ruc:
+                continue
+            # extrae elementos de ese stem de resp1/2
+            r1 = [it for it in r1_items if (it or {}).get("archivo") == stem]
+            r2 = [it for it in ((data_new.get("respuesta2") or {}).get("por_archivo") or []) if (it or {}).get("archivo") == stem]
+            comp_text = (data_new.get("respuesta1") or {}).get("comparativo_texto") or ""
+            mini = {
+                "respuesta1": {"por_archivo": r1, "comparativo_texto": comp_text},
+                "respuesta2": {"por_archivo": r2}
+            }
+            async with ANALYSIS_LOCK:
+                _cache_store_analysis_for_ruc(ruc, mini)
 
-    data.setdefault("respuesta1", {})
-    data.setdefault("respuesta2", {})
-    data["respuesta1"].setdefault("por_archivo", [])
-    data["respuesta1"].setdefault("comparativo_texto", "")
-    data["respuesta2"].setdefault("por_archivo", [])
+    # 5) Mezclar cache (presentes en uploads) + nuevos
+    cached_r1, cached_r2, comp_cached = _collect_cached_items_for_current_uploads()
 
-    # 5) Ordenar por archivo para consistencia visual
+    # También agregamos lo recién generado (por si contiene archivos sin RUC/ sin cacheo)
+    if isinstance(data_new, dict):
+        new_r1 = (data_new.get("respuesta1") or {}).get("por_archivo") or []
+        new_r2 = (data_new.get("respuesta2") or {}).get("por_archivo") or []
+        # dedup por archivo
+        seen_files = { (i or {}).get("archivo") for i in cached_r1 }
+        for it in new_r1:
+            if (it or {}).get("archivo") not in seen_files:
+                cached_r1.append(it)
+        seen_files2 = { (i or {}).get("archivo") for i in cached_r2 }
+        for it in new_r2:
+            if (it or {}).get("archivo") not in seen_files2:
+                cached_r2.append(it)
+        comp_new = (data_new.get("respuesta1") or {}).get("comparativo_texto") or ""
+    else:
+        comp_new = ""
+
+    comparativo_final = " | ".join(filter(None, [comp_cached, comp_new])) or "Análisis combinado (cache + nuevos)."
+
+    # Orden estable por nombre de archivo
     try:
-        data["respuesta1"]["por_archivo"] = sorted(
-            data["respuesta1"]["por_archivo"],
-            key=lambda x: (x or {}).get("archivo","")
-        )
-        data["respuesta2"]["por_archivo"] = sorted(
-            data["respuesta2"]["por_archivo"],
-            key=lambda x: (x or {}).get("archivo","")
-        )
+        cached_r1 = sorted(cached_r1, key=lambda x: (x or {}).get("archivo",""))
+        cached_r2 = sorted(cached_r2, key=lambda x: (x or {}).get("archivo",""))
     except Exception:
         pass
 
-    # Guardar en cache como análisis vigente y devolver
-    async with ANALYSIS_LOCK:
-        LAST_ANALYSIS_DATA = data
-        ANALYSIS_DONE = True
+    return {
+        "respuesta1": {"por_archivo": cached_r1, "comparativo_texto": comparativo_final[:1200]},
+        "respuesta2": {"por_archivo": cached_r2},
+        "_source": "mixed"
+    }
 
-    return {**data, "_source": "fresh"}
 
 
 @app.post("/api/upload-pdf")
@@ -700,25 +774,47 @@ async def upload_pdf(files: List[UploadFile] = File(...)):
     if not files:
         raise HTTPException(status_code=400, detail="No se recibieron archivos.")
 
-    # 3) Guardar e indexar nuevos archivos
     saved = []
     for f in files:
         if f.content_type not in ("application/pdf", "application/octet-stream"):
             raise HTTPException(status_code=400, detail=f"{f.filename} no es PDF.")
+
         safe = Path(f.filename).name
+        # 1) Leer bytes en memoria (no tocar disco aún)
+        pdf_bytes = await f.read()
+
+        # 2) Extraer RUC antes de escribir
+        try:
+            ruc = await extract_ruc_from_pdf_bytes(pdf_bytes)
+        except Exception:
+            ruc = None
+
+        # 3) Si ya hay análisis en cache para este RUC, NO guardar ni indexar
+        if ruc and ruc in ANALYSIS_BY_RUC:
+            async with ANALYSIS_LOCK:
+                UPLOAD_RUC_INDEX[safe] = ruc
+            saved.append({"filename": safe, "chunks": 0, "skipped": True, "reason": "RUC ya analizado"})
+            continue
+
+        # 4) Guardar e indexar (flujo normal)
         dest = S.UPLOAD_DIR / safe
         with dest.open("wb") as out:
-            shutil.copyfileobj(f.file, out)
-        chunks = index_uploaded_pdf(dest, S.UPLOADS_COLLECTION)
-        saved.append({"filename": safe, "chunks": chunks})
+            out.write(pdf_bytes)
 
-    # 4) Sincronizar índice por si acaso
+        chunks = index_uploaded_pdf(dest, S.UPLOADS_COLLECTION)
+        async with ANALYSIS_LOCK:
+            UPLOAD_RUC_INDEX[safe] = ruc  # puede ser None
+
+        saved.append({"filename": safe, "chunks": chunks, "skipped": False, "ruc": ruc})
+
+    # 5) Sincronizar índice por si acaso
     try:
         sync_uploads_index()
     except Exception:
         pass
 
     return {"ok": True, "files": saved}
+
 
 
 @app.get("/api/list-pdf")
@@ -772,10 +868,12 @@ async def cambioTDoc():
         pass
 
     # 5) Resetear estado del análisis (nuevo set de archivos => nuevo análisis)
-    global LAST_ANALYSIS_DATA, ANALYSIS_DONE
+    global LAST_ANALYSIS_DATA, ANALYSIS_DONE, ANALYSIS_BY_RUC, UPLOAD_RUC_INDEX
     async with ANALYSIS_LOCK:
         LAST_ANALYSIS_DATA = None
         ANALYSIS_DONE = False
+        ANALYSIS_BY_RUC = {}
+        UPLOAD_RUC_INDEX = {}
 
     return Response(status_code=204)
 
@@ -870,19 +968,39 @@ def pick_base_docs_for_upload(
     """
     Selecciona documentos BASE relevantes:
     - Modo estricto: SOLO (familia, procedimiento, doc_role) según bundle. Sin fallbacks.
-    - Modo normal: mantiene tus fallbacks actuales.
+    - Modo normal: mantiene fallbacks, pero nunca filtra por doc_role=None.
     """
     vs_base = _ensure_chroma(S.BASE_COLLECTION)
+
+    # Si la colección está vacía devolvemos []
+    try:
+        if getattr(vs_base, "_collection", None):
+            if (vs_base._collection.count() or 0) == 0:
+                return []
+    except Exception:
+        pass
 
     familia = (process_hint or {}).get("familia") or (upload_meta or {}).get("familia")
     proc    = (process_hint or {}).get("procedimiento") or (upload_meta or {}).get("procedimiento")
 
     def fetch_by(where_filter, k=6):
+        where_filter = _clean_filter(where_filter) or {}
         ret = vs_base.as_retriever(
             search_type="mmr",
-            search_kwargs={"k": k, "fetch_k": 50, "filter": where_filter}
+            search_kwargs={"k": k, "fetch_k": max(20, k * 5), "filter": where_filter}
         )
-        return ret.get_relevant_documents(query)
+        try:
+            return ret.invoke(query)
+        except Exception:
+            # Fallback 1: similarity_search con filtro
+            try:
+                return vs_base.similarity_search(query, k=k, filter=where_filter)
+            except Exception:
+                # Fallback 2: similarity_search sin filtro
+                try:
+                    return vs_base.similarity_search(query, k=k)
+                except Exception:
+                    return []
 
     chosen = []
     bundle = CFG.find_bundle(familia, proc)
@@ -892,51 +1010,53 @@ def pick_base_docs_for_upload(
         if not (familia and proc and bundle):
             return []  # sin facetas completas o sin bundle → nada
 
-        roles = bundle.get("include_roles", [])
+        roles = [r for r in bundle.get("include_roles", []) if r]  # filtra None/''
+
         for role in roles:
-            where_fp_role = {
-                "$and": [
-                    {"familia": {"$eq": familia}},
-                    {"procedimiento": {"$eq": proc}},
-                    {"doc_role": {"$eq": role}}
-                ]
-            }
+            where_and = [{"familia": {"$eq": familia}}, {"procedimiento": {"$eq": proc}}]
+            # nunca filtres por doc_role=None
+            if role:
+                where_and.append({"doc_role": {"$eq": role}})
+            where_fp_role = {"$and": where_and}
             chosen.extend(fetch_by(where_fp_role, k=k_per_role))
 
-        # anexos opcionales estrictos
-        for role in bundle.get("also_include", []):
-            where_extra = {
-                "$and": [
-                    {"familia": {"$eq": familia}},
-                    {"procedimiento": {"$eq": proc}},
-                    {"doc_role": {"$eq": role}}
-                ]
-            }
+        # anexos opcionales estrictos (también filtrados)
+        for role in [r for r in bundle.get("also_include", []) if r]:
+            where_extra = {"$and": [
+                {"familia": {"$eq": familia}},
+                {"procedimiento": {"$eq": proc}},
+                {"doc_role": {"$eq": role}}
+            ]}
             chosen.extend(fetch_by(where_extra, k=1))
+
     else:
-        # ——— MODO NORMAL (tu lógica original con fallbacks) ———
+        # ——— MODO NORMAL (fallbacks) ———
         if bundle:
-            roles = bundle.get("include_roles", [])
+            roles = [r for r in bundle.get("include_roles", []) if r]  # filtra None/''
             for role in roles:
-                docs = fetch_by(
-                    _and_filter(
-                        {"familia": {"$eq": familia}} if familia else None,
-                        {"procedimiento": {"$eq": proc}} if proc else None,
-                        {"doc_role": {"$eq": role}}
-                    ),
-                    k=k_per_role
+                base_filter = _and_filter(
+                    {"familia": {"$eq": familia}} if familia else None,
+                    {"procedimiento": {"$eq": proc}} if proc else None,
+                    {"doc_role": {"$eq": role}} if role else None
                 )
+                docs = fetch_by(base_filter, k=k_per_role)
+
                 if not docs and familia:
                     docs = fetch_by(
-                        _and_filter({"familia": {"$eq": familia}}, {"doc_role": {"$eq": role}}),
+                        _and_filter(
+                            {"familia": {"$eq": familia}} if familia else None,
+                            {"doc_role": {"$eq": role}} if role else None
+                        ),
                         k=k_per_role
                     )
-                if not docs:
+                if not docs and role:
                     docs = fetch_by({"doc_role": {"$eq": role}}, k=k_per_role)
+
                 chosen.extend(docs)
 
-            for role in bundle.get("also_include", []):
+            for role in [r for r in bundle.get("also_include", []) if r]:
                 chosen.extend(fetch_by({"doc_role": {"$eq": role}}, k=1))
+
         else:
             base_docs = []
             if familia or proc:
@@ -959,6 +1079,7 @@ def pick_base_docs_for_upload(
             seen.add(s)
             final.append(d)
     return final
+
 
 # =========================
 # Helpers para decisión "anti-fantasía"
@@ -1152,3 +1273,162 @@ Devuelve UN ÚNICO JSON **válido** exactamente con esta forma:
 - BLOQUES_DE_ENTRADA (repite para cada archivo):
 {BLOQUES}
 """
+
+def extract_text_head_from_bytes(pdf_bytes: bytes, max_chars: int = 6000, enable_ocr: bool = False) -> str:
+    """
+    HEAD de texto desde bytes (sin tocar disco).
+    No hace OCR por defecto para ser rápido en el upload.
+    """
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    except Exception:
+        return ""
+    parts = []
+    for p in doc:
+        if len(" ".join(parts)) > max_chars:
+            break
+        try:
+            if _page_has_text(p):
+                parts.append(p.get_text("text"))
+            elif enable_ocr:
+                pix = p.get_pixmap(dpi=200)
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                parts.append(ocr_image(img))
+        except Exception:
+            continue
+    return "\n".join(parts)[:max_chars]
+
+async def ai_guess_ruc_from_text(text: str) -> Optional[str]:
+    """
+    Pide al LLM que ubique un RUC ecuatoriano (13 dígitos).
+    Devuelve solo el número válido o None.
+    """
+    if not ENABLE_AI_RUC:
+        return None
+    try:
+        llm = make_llm(temperature=0.0)
+        prompt = (
+            "Extrae SOLO el RUC ecuatoriano (13 dígitos) del texto siguiente. "
+            "Si no hay, responde exactamente 'NONE'. Texto:\n\n"
+            f"{text[:8000]}"
+        )
+        resp = await llm.ainvoke(prompt)
+        out = (resp.content or "").strip()
+        m = RUC_RE.search(out)
+        return m.group(1) if m else (None if "NONE" in out.upper() else None)
+    except Exception:
+        return None
+
+async def extract_ruc_from_pdf_bytes(pdf_bytes: bytes) -> Optional[str]:
+    """
+    Intenta regex sobre el HEAD; si falla y está permitido, consulta al LLM.
+    """
+    head = extract_text_head_from_bytes(pdf_bytes, max_chars=10000, enable_ocr=False)
+    if not head:
+        return None
+    m = RUC_RE.search(head)
+    if m:
+        return m.group(1)
+    # fallback IA
+    return await ai_guess_ruc_from_text(head)
+
+
+def _stem_for_filename(name: str) -> str:
+    return Path(name).stem
+
+def _filename_for_stem(stem: str) -> Optional[str]:
+    # best-effort: busca por coincidencia en uploads
+    for p in S.UPLOAD_DIR.glob("*.pdf"):
+        if Path(p.name).stem == stem:
+            return p.name
+    return None
+
+def _get_ruc_for_stem(stem: str) -> Optional[str]:
+    filename = _filename_for_stem(stem)
+    if not filename:
+        return None
+    # primero de índice rápido
+    r = UPLOAD_RUC_INDEX.get(filename)
+    if r:
+        return r
+    # fallback a lectura del PDF ya en disco
+    return extract_ruc_from_offer_stem(stem)
+
+def _cache_store_analysis_for_ruc(ruc: Optional[str], data_json: dict):
+    """
+    data_json tiene la forma completa (respuesta1/respuesta2). Guardamos por-RUC
+    los ítems por archivo que vengan en este batch.
+    """
+    if not isinstance(data_json, dict):
+        return
+    r1 = (data_json.get("respuesta1") or {}).get("por_archivo") or []
+    r2 = (data_json.get("respuesta2") or {}).get("por_archivo") or []
+    comp = (data_json.get("respuesta1") or {}).get("comparativo_texto") or ""
+
+    # Si no tenemos RUC (no hallado), no podemos cachear por RUC; salimos.
+    if not ruc:
+        return
+
+    bucket = ANALYSIS_BY_RUC.setdefault(ruc, {"r1_items": [], "r2_items": [], "comparativos": []})
+
+    # merge deduplicando por archivo
+    def _merge(lst: list, new_items: list, key="archivo"):
+        seen = { (i or {}).get(key) for i in lst }
+        for it in new_items:
+            if (it or {}).get(key) not in seen:
+                lst.append(it)
+
+    _merge(bucket["r1_items"], r1)
+    _merge(bucket["r2_items"], r2)
+    if comp:
+        bucket["comparativos"].append(comp)
+
+def _collect_cached_items_for_current_uploads() -> Tuple[list, list, str]:
+    r1_all, r2_all, comparativos = [], [], []
+    active_filenames = {p.name for p in S.UPLOAD_DIR.glob("*.pdf")}
+    active_rucs = set()
+
+    if active_filenames:
+        # Buscar RUCs solo de los uploads vivos
+        for fn in active_filenames:
+            r = UPLOAD_RUC_INDEX.get(fn)
+            if r:
+                active_rucs.add(r)
+    else:
+        # Si no hay archivos vivos, usar todos los RUCs del caché
+        active_rucs = set(ANALYSIS_BY_RUC.keys())
+
+    # Volcar datos de cada RUC activo
+    for ruc in active_rucs:
+        bucket = ANALYSIS_BY_RUC.get(ruc)
+        if not bucket:
+            continue
+        r1_all.extend(bucket.get("r1_items", []))
+        r2_all.extend(bucket.get("r2_items", []))
+        comparativos.extend(bucket.get("comparativos", []))
+
+    return r1_all, r2_all, " | ".join(filter(None, comparativos))[:1200]
+
+
+def _clean_filter(f):
+    if isinstance(f, dict):
+        out = {}
+        for k, v in f.items():
+            if k in ("$and", "$or") and isinstance(v, list):
+                cleaned = [_clean_filter(x) for x in v if _clean_filter(x) is not None]
+                if cleaned:
+                    out[k] = cleaned
+            elif isinstance(v, dict) and "$eq" in v and v["$eq"] is None:
+                continue
+            else:
+                cv = _clean_filter(v)
+                if cv is not None and cv != {} and cv != []:
+                    out[k] = cv
+        return out or None
+    elif isinstance(f, list):
+        cleaned = [_clean_filter(x) for x in f if _clean_filter(x) is not None]
+        return cleaned or None
+    else:
+        return f
+
+
