@@ -173,6 +173,12 @@ function populateProcessCombo(items){
     const idx = [...$process.options].findIndex(o => o.value === current);
     if (idx >= 0) $process.selectedIndex = idx;
   }
+    // Si hay un proceso detectado pendiente, aplícalo ahora
+  if (__pendingDetectedProcess) {
+    setProcessSelection(__pendingDetectedProcess);
+    __pendingDetectedProcess = null;
+  }
+
 }
 
 function labelFamilia(f){
@@ -223,6 +229,55 @@ $process.addEventListener("change", async () => {
     $process.value = lastProcessSelection;
   }
 });
+
+// ===== Auto-proceso detectado =====
+let __pendingDetectedProcess = null; // por si llegan antes de poblar el combo
+
+function setProcessSelection(proc){
+  if (!proc || !proc.familia || !proc.procedimiento) return false;
+
+  const wantedObj = { familia: proc.familia, procedimiento: proc.procedimiento };
+  const wanted = JSON.stringify(wantedObj);
+
+  // 1) Intenta seleccionar por value directamente
+  $process.value = wanted;
+
+  // 2) Si no existe esa opción, créala on-the-fly y selecciónala
+  if ($process.value !== wanted) {
+    const txt = `${labelFamilia(proc.familia)} — ${labelProc(proc.procedimiento)}`;
+    const opt = new Option(txt, wanted);
+    $process.add(opt);
+    $process.value = wanted;
+  }
+
+  // 3) Asegura que “auto” no quede visualmente marcado
+  if ($process.options[0]) $process.options[0].selected = false;
+
+  // 4) Persistencia local (no disparamos 'change', así no se limpia nada)
+  localStorage.setItem("processSelection", wanted);
+  lastProcessSelection = wanted;
+
+  // 5) Mensaje (opcional)
+  addBot(`🔎 Tipo detectado: ${labelFamilia(proc.familia)} — ${labelProc(proc.procedimiento)}`);
+
+  // 6) (Opcional) fuerza re-pintado sin side-effects
+  $process.dispatchEvent(new Event("input"));
+
+  return true;
+}
+
+async function hydrateDetectedProcess(){
+  try {
+    const r = await apiGet("/api/process-hint");
+    const p = r && r.process;
+    if (p) {
+      // Si aún no está el combo poblado, guárdalo para aplicarlo luego
+      if (!setProcessSelection(p)) {
+        __pendingDetectedProcess = p;
+      }
+    }
+  } catch {}
+}
 
 
 // ===== Events =====
@@ -406,6 +461,13 @@ document.getElementById("upload").onclick = async ()=>{
     $status.textContent = "✅ Listo";
     addBot(`Subidos: ${data.files.map(x=>x.filename).join(", ")}`);
     await refreshList();
+    // Si el backend detectó el proceso en el primer PDF, aplícalo
+    if (data.detected_process) {
+      if (!setProcessSelection(data.detected_process)) {
+        __pendingDetectedProcess = data.detected_process; // por si el combo aún no está listo
+      }
+    }
+
   }catch(e){
     $status.textContent = "⚠️ Error al subir";
     addBot(`⚠️ Error /api/upload-pdf<br>${escapeHtml(e.message)}`);
@@ -475,7 +537,7 @@ function stopProgress(ok=true){
 }
 
 refreshList();
-loadProcesses();
+loadProcesses().then(hydrateDetectedProcess);
 </script>
 
 

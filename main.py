@@ -131,6 +131,46 @@ def _dedup_join_pipes(*texts: str, limit: int = 1200) -> str:
     res = " | ".join(out)
     return res[:limit]
 
+# ===== Proceso detectado automáticamente (persistente opcional) =====
+CURRENT_PROCESS: Optional[dict] = None
+PROCESS_HINT_PATH = S.BASE_DIR / "data" / "process_hint.json"
+PROCESS_HINT_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+def _get_current_process() -> Optional[dict]:
+    global CURRENT_PROCESS
+    if CURRENT_PROCESS:
+        return CURRENT_PROCESS
+    try:
+        if PROCESS_HINT_PATH.exists():
+            with open(PROCESS_HINT_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f) or {}
+                if data.get("familia") and data.get("procedimiento"):
+                    CURRENT_PROCESS = {"familia": data["familia"], "procedimiento": data["procedimiento"]}
+                    return CURRENT_PROCESS
+    except Exception:
+        pass
+    return None
+
+def _set_current_process(proc: Optional[dict]):
+    """proc = {'familia': 'obras', 'procedimiento':'Cotizacion'}"""
+    global CURRENT_PROCESS
+    if proc and proc.get("familia") and proc.get("procedimiento"):
+        CURRENT_PROCESS = {"familia": proc["familia"], "procedimiento": proc["procedimiento"]}
+        try:
+            with open(PROCESS_HINT_PATH, "w", encoding="utf-8") as f:
+                json.dump(CURRENT_PROCESS, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+def _reset_current_process():
+    global CURRENT_PROCESS
+    CURRENT_PROCESS = None
+    try:
+        if PROCESS_HINT_PATH.exists():
+            PROCESS_HINT_PATH.unlink()
+    except Exception:
+        pass
+
 # =========================
 # FastAPI
 # =========================
@@ -631,34 +671,68 @@ def list_processes():
 async def upload_pdf(files: List[UploadFile] = File(...)):
     if not files:
         raise HTTPException(status_code=400, detail="No se recibieron archivos.")
+
     saved = []
-    for f in files:
+    auto_process = None  # para devolver al front la detección
+
+    for idx, f in enumerate(files):
         if f.content_type not in ("application/pdf", "application/octet-stream"):
             raise HTTPException(status_code=400, detail=f"{f.filename} no es PDF.")
+
         safe = Path(f.filename).name
         pdf_bytes = await f.read()
+
+        # 1) RUC rápido desde bytes
         try:
             ruc = await extract_ruc_from_pdf_bytes(pdf_bytes)
         except Exception:
             ruc = None
-        # si ya hay análisis para ese RUC, no re-indexamos
-        if ruc and ruc in ANALYSIS_BY_RUC:
-            async with ANALYSIS_LOCK:
-                UPLOAD_RUC_INDEX[safe] = ruc
-            saved.append({"filename": safe, "chunks": 0, "skipped": True, "reason": "RUC ya analizado"})
-            continue
+
+        # 2) Guardar a disco
         dest = S.UPLOAD_DIR / safe
         with dest.open("wb") as out:
             out.write(pdf_bytes)
+
+        # 3) Indexar
         chunks = index_uploaded_pdf(dest, S.UPLOADS_COLLECTION)
+
+        # 4) Registrar RUC en índice en memoria
         async with ANALYSIS_LOCK:
-            UPLOAD_RUC_INDEX[safe] = ruc
-        saved.append({"filename": safe, "chunks": chunks, "skipped": False, "ruc": ruc})
+            UPLOAD_RUC_INDEX[safe] = ruc  # puede ser None
+
+        # 5) === Detección automática de proceso (solo si no existe aún) ===
+        if _get_current_process() is None:
+            # Clasifica por nombre + head del PDF
+            try:
+                head = extract_text_head(dest)
+                m = CFG.match_facets(f"{dest.name}\n{head}")
+                fam, proc = m.get("familia"), m.get("procedimiento")
+                if fam and proc:
+                    auto_process = {"familia": fam, "procedimiento": proc}
+                    _set_current_process(auto_process)
+                else:
+                    auto_process = None
+            except Exception:
+                auto_process = None
+
+        saved.append({
+            "filename": safe,
+            "chunks": chunks,
+            "skipped": False,
+            "ruc": ruc
+        })
+
     try:
         sync_uploads_index()
     except Exception:
         pass
-    return {"ok": True, "files": saved}
+
+    # Respuesta incluye el proceso detectado (si hubo)
+    return {
+        "ok": True,
+        "files": saved,
+        "detected_process": auto_process or _get_current_process()
+    }
 
 @app.get("/api/list-pdf")
 async def list_pdf():
@@ -669,6 +743,7 @@ async def list_pdf():
 
 @app.get("/api/cambioTipoDoc")
 async def cambio_tipo_doc():
+    # limpiar uploads en disco
     try:
         if S.UPLOAD_DIR.exists():
             for filename in os.listdir(S.UPLOAD_DIR):
@@ -684,22 +759,41 @@ async def cambio_tipo_doc():
             S.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"No se pudo limpiar uploads: {e}")
+
+    # limpiar colección de uploads
     try:
         vs = _ensure_chroma(S.UPLOADS_COLLECTION)
         got = vs._collection.get(include=[])
         ids = got.get("ids") or []
         if ids:
             vs._collection.delete(ids=ids)
-        try: vs.persist()
-        except Exception: pass
+        try:
+            vs.persist()
+        except Exception:
+            pass
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"No se pudo limpiar índice de uploads: {e}")
-    try: sync_uploads_index()
-    except Exception: pass
+
+    # re-sincronizar
+    try:
+        sync_uploads_index()
+    except Exception:
+        pass
+
+    # reset de estados
     global ANALYSIS_BY_RUC, UPLOAD_RUC_INDEX
     async with ANALYSIS_LOCK:
-        ANALYSIS_BY_RUC = {}; UPLOAD_RUC_INDEX = {}
+        ANALYSIS_BY_RUC = {}
+        UPLOAD_RUC_INDEX = {}
+    _reset_current_process()  # ⬅️ importante
+
     return Response(status_code=204)
+
+@app.get("/api/process-hint")
+def current_process_hint():
+    """Devuelve el proceso detectado automáticamente, si existe."""
+    p = _get_current_process()
+    return {"process": p}
 
 def current_upload_sources() -> set[str]:
     return {p.name for p in S.UPLOAD_DIR.glob("*.pdf")}
@@ -960,7 +1054,7 @@ async def chat_endpoint(req: ChatRequest):
     y devuelve comparativo deduplicado.
     """
     user_q = (req.query or "").strip() or "Evalúa cumplimiento por oferta, detecta brechas y acciones de mejora concretas."
-    process_hint = req.process.dict() if req.process else None
+    process_hint = req.process.dict() if req.process else (_get_current_process() or None)
 
     # Archivos actuales
     live_files = sorted([p.name for p in S.UPLOAD_DIR.glob("*.pdf")])
