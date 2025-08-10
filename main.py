@@ -676,6 +676,11 @@ async def list_pdf():
 from fastapi.staticfiles import StaticFiles
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/", StaticFiles(directory="templates", html=True), name="front")
+# Responder explícitamente a /favicon.ico
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse("static/favicon.ico")
+
 
 # =========================
 # Sincronización y utilidades de uploads
