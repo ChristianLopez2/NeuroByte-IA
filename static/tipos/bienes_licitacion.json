@@ -1,0 +1,38 @@
+{
+  "procesoId": "BYS-LIC-2025-014",
+  "referencia": { "costo": 150000, "plazo_dias": 45 },
+  "requisitos": [
+    { "id": "R-001", "categoria": "Legal", "sub": "Registro", "texto": "Certificado de proveedor", "peso": 1, "clausula": "1.4", "pagina": 3 },
+    { "id": "R-002", "categoria": "Tecnica", "sub": "Calidad", "texto": "Certificación ISO 9001", "peso": 1.5, "clausula": "2.5", "pagina": 8 },
+    { "id": "R-003", "categoria": "Economica", "sub": "Pago", "texto": "Condiciones de pago flexibles", "peso": 0.8, "clausula": "4.1", "pagina": 12 }
+  ],
+  "oferentes": [
+    {
+      "id": "O1",
+      "nombre": "Proveedor Gamma",
+      "costo": 148000,
+      "plazo_dias": 40,
+      "cumplimientos": [
+        { "reqId": "R-001", "estado": "CUMPLE" },
+        { "reqId": "R-002", "estado": "CUMPLE" },
+        { "reqId": "R-003", "estado": "CUMPLE" }
+      ],
+      "riesgos": []
+    },
+    {
+      "id": "O2",
+      "nombre": "Servicios Delta",
+      "costo": 155000,
+      "plazo_dias": 50,
+      "cumplimientos": [
+        { "reqId": "R-001", "estado": "CUMPLE" },
+        { "reqId": "R-002", "estado": "PARCIAL" },
+        { "reqId": "R-003", "estado": "NO CUMPLE" }
+      ],
+      "riesgos": [
+        { "nivel": "MEDIO", "clausula": "4.3", "pagina": 15, "descripcion": "Pago anticipado del 50% requerido" }
+      ]
+    }
+  ],
+  "pesosCategoria": { "Legal": 0.4, "Tecnica": 0.4, "Economica": 0.2 }
+}

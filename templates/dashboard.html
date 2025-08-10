@@ -4,59 +4,81 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Dashboard comparativo de ofertas</title>
-  <!-- Tu CSS existente -->
   <link rel="stylesheet" href="/static/styles.css?v=1" />
-  <!-- Tabulator (tabla interactiva) -->
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <!-- Tabulator -->
   <link href="https://unpkg.com/tabulator-tables@5.6.2/dist/css/tabulator.min.css" rel="stylesheet">
   <script src="https://unpkg.com/tabulator-tables@5.6.2/dist/js/tabulator.min.js"></script>
-  <!-- Chart.js (gráficos) -->
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
-    /* Pequeños utilitarios que respetan tu paleta con var(--*) */
     .wrap{max-width:1200px;margin:0 auto;padding:20px}
     .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
     .card{background:var(--card);border-radius:14px;padding:14px;box-shadow:0 8px 20px rgba(0,0,0,.25)}
     .card h3{margin:0 0 6px 0;font-size:14px;color:var(--muted)}
     .card .val{font-size:28px;font-weight:800;color:var(--ink)}
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+    .grid-3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;margin-top:16px}
     .panel{background:var(--card);border-radius:14px;padding:14px;box-shadow:0 8px 20px rgba(0,0,0,.25)}
-    .filters{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:10px;margin:12px 0}
-    .filters select,.filters input{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:#0d1326;color:var(--ink)}
-    .chip{display:inline-block;padding:4px 10px;border-radius:999px;background:#0d1326;border:1px solid rgba(255,255,255,.08);font-size:12px;margin-right:6px}
-    .legend{display:flex;gap:8px;align-items:center;margin:10px 0}
-    .legend span{font-size:12px;color:var(--muted)}
+    .list{display:grid;gap:8px;margin-top:6px}
+    .item{background:#0d1326;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px}
+    .muted{color:var(--muted);font-size:12px}
     .footer-note{opacity:.7;font-size:12px;margin-top:8px}
-    @media (max-width: 900px){.cards{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.filters{grid-template-columns:1fr 1fr}}
-    @media (max-width: 600px){.cards{grid-template-columns:1fr}.filters{grid-template-columns:1fr}}
+    @media (max-width:1100px){.grid-3{grid-template-columns:1fr}}
+    @media (max-width:900px){.cards{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}}
+    @media (max-width:600px){.cards{grid-template-columns:1fr}}
+
+    .alerta{padding:10px;border:1px dashed rgba(255,255,255,.25);border-radius:10px;
+          background:#0d1326;color:var(--muted)}
+
+    /* DROPLIST */
+    .mdrop{position:relative;display:inline-block}
+    .mdrop-btn{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:#0d1326;color:var(--ink);display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .mdrop-menu{position:absolute;z-index:30;top:110%;left:0;min-width:260px;max-height:260px;overflow:auto;background:#0d1326;border:1px solid rgba(255,255,255,.1);border-radius:12px;box-shadow:0 8px 26px rgba(0,0,0,.35);padding:8px;display:none}
+    .mdrop.open .mdrop-menu{display:block}
+    .mdrop-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px}
+    .mdrop-item:hover{background:rgba(255,255,255,.06)}
+    .filters{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:10px;margin:12px 0}
+    .filters input,.filters select{padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:#0d1326;color:var(--ink)}
+    .chip{display:inline-block;padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.08);font-size:12px}
   </style>
 </head>
 <body>
   <div class="nav">
-    <div class="brand">Asistente IA RAG 📚</div>
+    <div class="brand">Asistente NeuroByte-IA</div>
     <div class="legend"><span class="chip">Comparativo</span><span>Pliegos • Propuestas • Contratos</span></div>
   </div>
 
   <div class="wrap">
-    <!-- Filtros -->
+    <!-- Filtros y fuente de datos -->
     <div class="panel">
       <div class="filters">
-        <input id="procesoInput" placeholder="ID de proceso (p.ej. LIC-2025-001)" />
-        <select id="oferentesSelect" multiple></select>
-        <select id="categoriaSelect" multiple>
-          <option selected>Legal</option>
-          <option selected>Tecnica</option>
-          <option selected>Administrativa</option>
+        <!-- NUEVO: selector de tipo de licitación -->
+        <select id="tipoSelect" title="Tipo de proceso">
+          <!-- Se pobla dinámicamente; hay fallback local -->
         </select>
-        <select id="riesgoSelect">
-          <option value="ALL" selected>Riesgo: Todos</option>
-          <option value="ALTO">Riesgo Alto</option>
-          <option value="MEDIO">Riesgo Medio</option>
-          <option value="BAJO">Riesgo Bajo</option>
-        </select>
+
+        <!-- Oferentes (multi) -->
+        <div class="mdrop" id="mdOferentes">
+          <button class="mdrop-btn" type="button"><span id="mdOferentesLabel">Oferentes: Todos</span><span>▾</span></button>
+          <div class="mdrop-menu" id="mdOferentesMenu"></div>
+        </div>
+
+        <!-- Categorías (multi) -->
+        <div class="mdrop" id="mdCategorias">
+          <button class="mdrop-btn" type="button"><span id="mdCategoriasLabel">Categorías: Todas</span><span>▾</span></button>
+          <div class="mdrop-menu" id="mdCategoriasMenu"></div>
+        </div>
+
+        <!-- Riesgo (single) -->
+        <div class="mdrop" id="mdRiesgo">
+          <button class="mdrop-btn" type="button"><span id="mdRiesgoLabel">Riesgo: Todos</span><span>▾</span></button>
+          <div class="mdrop-menu" id="mdRiesgoMenu"></div>
+        </div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button id="btnCargar" class="chip">Cargar datos</button>
-        <button id="btnDemo" class="chip">Usar demo</button>
+        <button id="btnCargarTipo" class="chip">Cargar por tipo</button>
+        <button id="btnDemo" class="chip">Refrescar Datos</button>
       </div>
     </div>
 
@@ -68,343 +90,332 @@
       <div class="card"><h3>Plazo vs ref.</h3><div class="val" id="kpiPlazo">—</div></div>
     </div>
 
+    <div class="cards" style="margin:6px 0 16px 0">
+      <div class="card"><h3>Horas administrativas ahorradas</h3><div class="val" id="kpiHoras">—</div><div class="muted" id="kpiHorasNote"></div></div>
+      <div class="card"><h3>Sobre-costo evitado (est.)</h3><div class="val" id="kpiCostoEv">—</div><div class="muted" id="kpiCostoEvNote"></div></div>
+      <div class="card"><h3>Cláusulas riesgosas detectadas</h3><div class="val" id="kpiRiesgosDetect">—</div><div class="muted">prioriza ALTO</div></div>
+      <div class="card"><h3>Trazabilidad</h3><div class="val" id="kpiTraza">—</div><div class="muted" id="kpiTrazaNote"></div></div>
+    </div>
+
     <!-- Gráficos -->
     <div class="grid">
       <div class="panel"><h3 style="margin:0 0 8px 0">Cumplimiento por categoría</h3><canvas id="radar"></canvas></div>
       <div class="panel"><h3 style="margin:0 0 8px 0">Cumplimiento por sub‑categoría</h3><canvas id="barras"></canvas></div>
     </div>
 
-    <!-- Tablas -->
-    <div class="grid" style="margin-top:16px">
+    <!-- Tablas + Insights -->
+    <div class="grid-3">
+      <div class="panel">
+        <h3 style="margin:0 0 8px 0">Riesgos detectados</h3>
+        <div id="tablaRiesgos"></div>
+      </div>
+
       <div class="panel">
         <h3 style="margin:0 0 8px 0">Requisitos × Oferentes</h3>
         <div id="tablaComparativa"></div>
       </div>
       <div class="panel">
-        <h3 style="margin:0 0 8px 0">Riesgos</h3>
-        <div id="tablaRiesgos"></div>
+        <h3 style="margin:0 0 8px 0">Top cláusulas riesgosas</h3>
+        <div class="list" id="listaTopRiesgos"></div>
+      </div>
+      <div class="panel">
+        <h3 style="margin:0 0 8px 0">Trazabilidad y evidencia</h3>
+        <div class="list" id="listaTraza"></div>
       </div>
     </div>
-    <div class="footer-note">Tip: haz clic en los encabezados para ordenar; usa Ctrl/Cmd en los selects para elegir múltiples oferentes/categorías.</div>
+
+    <div class="footer-note">Tip: elige el tipo de licitación y cargo automáticamente el JSON correspondiente.</div>
   </div>
 
-  <script>
-    // ======= Utilidades =======
-    const pesosPorDefecto = { Legal:0.4, Tecnica:0.4, Administrativa:0.2 };
+<script>
+(()=>{
+'use strict';
 
-    function scoreEstado(estado){
-      if(!estado) return 0;
-      const e = estado.toUpperCase();
-      if(e === 'CUMPLE') return 1;
-      if(e === 'PARCIAL') return 0.5;
-      return 0;
-    }
+// ===================== Fuente de tipos =====================
+// 1) Intento pedirlos a tu backend: GET /api/tipos-licitacion -> [{id,label,json}]
+// 2) Si falla, uso el fallback TIPOS_FALLBACK (edítalo rápido aquí)
 
-    function calcularKPIs(data, oferentesFiltrados){
-      if(!data || !data.oferentes || data.oferentes.length === 0) return {};
-      const refC = data.referencia?.costo ?? null;
-      const refP = data.referencia?.plazo_dias ?? null;
-      const ofers = data.oferentes.filter(o=>oferentesFiltrados.includes(o.id));
+const TIPOS_FALLBACK = [
+  { id:'auto', label:'Detectar automáticamente', json:null },
+  { id:'bienes-cotizacion', label:'Bienes y Servicios — Cotización', json:'/static/tipos/bienes_cotizacion.json' },
+  { id:'bienes-licitacion', label:'Bienes y Servicios — Licitación', json:'/static/tipos/bienes_licitacion.json' },
+  { id:'bienes-menor', label:'Bienes y Servicios — Menor Cuantía', json:'/static/tipos/bienes_menor.json' },
+  { id:'consultoria-licitacion', label:'Consultoría — Licitación', json:'/static/tipos/consultoria_licitacion.json' },
+  { id:'obras-cotizacion', label:'Obras — Cotización', json:'/static/tipos/obras_cotizacion.json' },
+  { id:'obras-menor', label:'Obras — Menor Cuantía', json:'/static/tipos/obras_menor.json' },
+  { id:'seguros-licitacion', label:'Licitación de Seguros — Licitación', json:'/static/tipos/seguros_licitacion.json' },
+  { id:'regimen-pliego', label:'Régimen Especial — Pliego', json:'/static/tipos/regimen_pliego.json' }
+];
 
-      // Cumplimiento promedio simple
-      let sum=0, n=0;
-      for(const o of ofers){
-        sum += calcularCumplimientoOferente(data, o);
-        n++;
-      }
-      const cumplimientoGlobal = n? (sum/n) : 0;
+async function cargarTipos(){
+  try{
+    const r = await fetch('/api/tipos-licitacion');
+    if(!r.ok) throw new Error('api tipos 404');
+    const tipos = await r.json();
+    if(!Array.isArray(tipos) || tipos.length===0) throw new Error('api tipos vacio');
+    return tipos;
+  }catch(e){
+    console.warn('Usando TIPOS_FALLBACK por error/cero resultados:', e?.message||e);
+    return TIPOS_FALLBACK;
+  }
+}
 
-      // Riesgos totales
-      let a=0,m=0,b=0; 
-      for(const o of ofers){
-        (o.riesgos||[]).forEach(r=>{
-          if(r.nivel==='ALTO') a++; else if(r.nivel==='MEDIO') m++; else b++;
-        })
-      }
+function mostrarMensaje(texto) {
+  let contenedor = document.getElementById('contenedor-datos');
+  if (!contenedor) {
+    contenedor = document.createElement('div');
+    contenedor.id = 'contenedor-datos';
+    contenedor.className = 'panel';
+    document.querySelector('.wrap').prepend(contenedor); // lo coloca arriba
+  }
+  contenedor.style.display = 'block';
+  contenedor.innerHTML = `<div class="alerta">${texto}</div>`;
+}
 
-      // Costo y plazo: desviación mínima vs referencia
-      let mejorCosto = null, mejorPlazo = null;
-      if(refC!=null){
-        mejorCosto = Math.min(...ofers.map(o=>Math.abs((o.costo??refC)-refC)));
-      }
-      if(refP!=null){
-        mejorPlazo = Math.min(...ofers.map(o=>Math.abs((o.plazo_dias??refP)-refP)));
-      }
 
-      return {
-        cumplimientoGlobal,
-        riesgos: {a,m,b},
-        costo: {ref:refC, delta: mejorCosto},
-        plazo: {ref:refP, delta: mejorPlazo}
-      };
-    }
+function renderizarDatos(raw) {
+  // Oculta mensaje si estaba visible
+  const cont = document.getElementById('contenedor-datos');
+  if (cont) cont.style.display = 'none';
 
-    function calcularCumplimientoOferente(data, oferente){
-      const pesos = data.pesosCategoria || pesosPorDefecto;
-      const pesoTotal = Object.values(pesos).reduce((p,c)=>p+c,0) || 1;
-      let acumulado = 0, usado = 0;
-      for(const req of data.requisitos){
-        const catPeso = pesos[req.categoria] ?? 0;
-        const c = (oferente.cumplimientos||[]).find(c=>c.reqId===req.id);
-        acumulado += (scoreEstado(c?.estado) * catPeso * (req.peso ?? 1));
-        usado += (catPeso * (req.peso ?? 1));
-      }
-      const denom = usado || pesoTotal; // fallback
-      return (acumulado/denom) * 100;
-    }
+  DATA = normalizeComparativo(raw);
+  hydrateFilters();
+  onFiltersChange();
+}
 
-    function cumplimientoPorCategoria(data, oferente){
-      const grupos = {};
-      for(const req of data.requisitos){
-        grupos[req.categoria] ||= {sum:0,den:0};
-        const c = (oferente.cumplimientos||[]).find(x=>x.reqId===req.id);
-        grupos[req.categoria].sum += scoreEstado(c?.estado) * (req.peso??1);
-        grupos[req.categoria].den += (req.peso??1);
-      }
-      return Object.fromEntries(Object.entries(grupos).map(([k,v])=>[k, v.den? (v.sum/v.den)*100:0]));
-    }
 
-    function cumplimientoPorSub(data, oferente){
-      const grupos = {};
-      for(const req of data.requisitos){
-        const key = `${req.categoria} • ${req.sub||'—'}`;
-        grupos[key] ||= {sum:0,den:0};
-        const c = (oferente.cumplimientos||[]).find(x=>x.reqId===req.id);
-        grupos[key].sum += scoreEstado(c?.estado) * (req.peso??1);
-        grupos[key].den += (req.peso??1);
-      }
-      return Object.fromEntries(Object.entries(grupos).map(([k,v])=>[k, v.den? (v.sum/v.den)*100:0]));
-    }
+// ===================== Parámetros de impacto =====================
+const ASSUMPTIONS = { reviewMinutesPerReq:12, automationFactor:0.7, avgCostOfErrorUSD:500,
+  riskCostWeights:{ALTO:3000,MEDIO:800,BAJO:200}, negotiationOverspendPct:0.03 };
+const pesosPorDefecto = { Legal:0.4, Tecnica:0.4, Administrativa:0.2 };
 
-    // ======= Estado =======
-    let DATA = null;
-    let chartRadar = null, chartBarras = null;
-    let tablaComp = null, tablaRisk = null;
+let DATA=null; let chartRadar=null, chartBarras=null; let tablaComp=null, tablaRisk=null;
+const $ = s=>document.querySelector(s);
+const fmtNum = n => (n==null||Number.isNaN(n)) ? '—' : new Intl.NumberFormat('es-EC').format(Math.round(n));
 
-    // ======= UI =======
-    const procesoInput = document.getElementById('procesoInput');
-    const oferentesSelect = document.getElementById('oferentesSelect');
-    const categoriaSelect = document.getElementById('categoriaSelect');
-    const riesgoSelect = document.getElementById('riesgoSelect');
+// ===================== Normalizador ÚNICO =====================
+function normalizeComparativo(j){
+  // si ya viene normalizado
+  if(j && j.requisitos && j.oferentes) return j;
 
-    document.getElementById('btnCargar').addEventListener('click', async()=>{
-      const pid = (procesoInput.value||'').trim();
-      if(!pid){ alert('Ingresa un ID de proceso'); return; }
-      //await cargarDesde(`/api/comparativo?procesoId=${encodeURIComponent(pid)}`);
-      await cargarDesde(`/static/comparativo.json`);
-
+  const out={ procesoId:j?.procesoId||'EXT', referencia:j?.referencia||{}, requisitos:[], oferentes:[], pesosCategoria:{Legal:0.34,Tecnica:0.33,Administrativa:0.33} };
+  const rx=j?.requisitos_x_oferentes||[];
+  if(rx.length){
+    const cols = Object.keys(rx[0]).filter(k=>k.toLowerCase()!=='requisito');
+    const oferentes = cols.map((c,i)=>({id:`O${i+1}`,nombre:c,cumplimientos:[]}));
+    rx.forEach((row,idx)=>{
+      const reqId=`R-${String(idx+1).padStart(3,'0')}`;
+      out.requisitos.push({id:reqId,categoria:'General',sub:'—',texto:String(row.requisito||'').trim(),peso:1.0,clausula:String(idx+1),pagina:null});
+      oferentes.forEach(o=>{
+        const val=row[o.nombre]; const s=String(val||'').toLowerCase();
+        const estado= s.startsWith('s')||s==='x'||s==='true' ? 'CUMPLE' : s.startsWith('p') ? 'PARCIAL' : 'NO CUMPLE';
+        o.cumplimientos.push({reqId,estado});
+      });
     });
-    document.getElementById('btnDemo').addEventListener('click', ()=>{
-      DATA = demoData();
-      hidratarUI();
+    out.oferentes=oferentes;
+  }
+  const tr=j?.top_clausulas_riesgosas||[];
+  if(tr.length){
+    const map={alto:'ALTO',medio:'MEDIO',bajo:'BAJO'};
+    const riesgos=tr.map(x=>({nivel:map[String(x.riesgo||'').toLowerCase()]||'MEDIO',clausula:x.clausula||'',pagina:x.pagina||null,descripcion:x.descripcion||''}));
+    if(out.oferentes.length){ out.oferentes.forEach(o=>{o.riesgos=(o.riesgos||[]).concat(riesgos)}); }
+    else{ out.oferentes.push({id:'OX',nombre:'Resumen de riesgos',cumplimientos:[],riesgos}); }
+  }
+  return out;
+}
+
+// ===================== Cargas =====================
+// Reemplaza cargarDesde por esta versión
+async function cargarDesde(url, labelForMsg){
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) {
+    mostrarMensaje(`No hay procesos activos para: ${labelForMsg || url}`);
+    return false;
+  }
+  let raw;
+  try { raw = await res.json(); } catch {
+    mostrarMensaje(`No hay procesos activos para: ${labelForMsg || url}`);
+    return false;
+  }
+  if (!raw || (Array.isArray(raw) && raw.length === 0)) {
+    mostrarMensaje(`No hay procesos activos para: ${labelForMsg || url}`);
+    return false;
+  }
+  renderizarDatos(raw);  // ya normaliza y pinta
+  return true;
+}
+
+// Ajusta cargarTipoSeleccionado para pasar la etiqueta al mensaje
+async function cargarTipoSeleccionado(){
+  const sel = document.querySelector('#tipoSelect').value;
+  if (sel === 'auto') {
+    try { 
+      const ok = await cargarDesde('/static/tipos/bienes_cotizacion.json','Detección automática');
+      if (!ok) { DATA = demoData(); hydrateFilters(); onFiltersChange(); }
+    } catch { DATA = demoData(); hydrateFilters(); onFiltersChange(); }
+    return;
+  }
+  const opt   = document.querySelector('#tipoSelect').selectedOptions[0];
+  const url   = opt?.dataset?.json;
+  const label = opt?.textContent || 'tipo seleccionado';
+  if (!url) { mostrarMensaje(`No hay procesos activos para: ${label}`); return; }
+  await cargarDesde(url, label); // <- ya no usamos alert
+}
+
+// Asegura que mostrarMensaje tenga un contenedor real
+function mostrarMensaje(texto) {
+  let cont = document.getElementById('contenedor-datos');
+  if (!cont) {
+    cont = document.createElement('div');
+    cont.id = 'contenedor-datos';
+    cont.className = 'panel';
+    document.querySelector('.wrap').prepend(cont);
+  }
+  cont.style.display = 'block';
+  cont.innerHTML = `<div class="alerta">${texto}</div>`;
+}
+
+// Y que renderizarDatos oculte el aviso cuando sí hay datos
+function renderizarDatos(raw) {
+  const cont = document.getElementById('contenedor-datos');
+  if (cont) cont.style.display = 'none';
+  DATA = normalizeComparativo(raw);
+  hydrateFilters();
+  onFiltersChange();
+}
+
+
+// ===================== Métricas/Render =====================
+function scoreEstado(e){ if(!e) return 0; const x=e.toUpperCase(); return x==='CUMPLE'?1: x==='PARCIAL'?0.5:0; }
+function calcularCumplimientoOferente(data,o){ const pesos=data.pesosCategoria||pesosPorDefecto; let s=0,d=0; for(const r of data.requisitos){ const w=(r.peso??1)*(pesos[r.categoria]??0.333); const c=(o.cumplimientos||[]).find(x=>x.reqId===r.id); s+=scoreEstado(c?.estado)*w; d+=w;} return d? (s/d)*100:0; }
+function cumplimientoPorCategoria(data,o){ const g={}; for(const r of data.requisitos){ const cat=r.categoria||'General'; g[cat] ||= {s:0,d:0}; const c=(o.cumplimientos||[]).find(x=>x.reqId===r.id); g[cat].s+=scoreEstado(c?.estado)*(r.peso??1); g[cat].d+=(r.peso??1);} return Object.fromEntries(Object.entries(g).map(([k,v])=>[k,v.d?(v.s/v.d)*100:0])); }
+function cumplimientoPorSub(data,o){ const g={}; for(const r of data.requisitos){ const key=`${r.categoria||'General'} • ${r.sub||'—'}`; g[key] ||= {s:0,d:0}; const c=(o.cumplimientos||[]).find(x=>x.reqId===r.id); g[key].s+=scoreEstado(c?.estado)*(r.peso??1); g[key].d+=(r.peso??1);} return Object.fromEntries(Object.entries(g).map(([k,v])=>[k,v.d?(v.s/v.d)*100:0])); }
+function calcularKPIs(data,ids){ const of=data.oferentes.filter(o=>ids.includes(o.id)); const prom=of.length? of.map(o=>calcularCumplimientoOferente(data,o)).reduce((a,b)=>a+b)/of.length:0; let A=0,M=0,B=0; of.forEach(o=> (o.riesgos||[]).forEach(r=>{ if(r.nivel==='ALTO')A++; else if(r.nivel==='MEDIO')M++; else B++; })); const refC=data.referencia?.costo, refP=data.referencia?.plazo_dias; const deltaC=refC!=null? Math.min(...of.map(o=>Math.abs((o.costo??refC)-refC))):null; const deltaP=refP!=null? Math.min(...of.map(o=>Math.abs((o.plazo_dias??refP)-refP))):null; return {prom,riesgos:{A,M,B},deltaC,refC,deltaP,refP}; }
+function calcularImpacto(data,ids){ const of=data.oferentes.filter(o=>ids.includes(o.id)); const reqCount=data.requisitos?.length||0; const saved=(reqCount*ASSUMPTIONS.reviewMinutesPerReq)*ASSUMPTIONS.automationFactor/60; let riskCost=0,a=0,m=0,b=0; of.forEach(o=> (o.riesgos||[]).forEach(r=>{ if(r.nivel==='ALTO'){a++; riskCost+=ASSUMPTIONS.riskCostWeights.ALTO}else if(r.nivel==='MEDIO'){m++; riskCost+=ASSUMPTIONS.riskCostWeights.MEDIO}else{b++; riskCost+=ASSUMPTIONS.riskCostWeights.BAJO}})); const avg=of.length? of.map(o=>calcularCumplimientoOferente(data,o)).reduce((x,y)=>x+y)/of.length:0; const overspend=(data.referencia?.costo||0)*(1-avg/100)*ASSUMPTIONS.negotiationOverspendPct; const avoided=Math.round(riskCost+overspend); let withE=0,total=0,traces=[]; of.forEach(o=> (o.cumplimientos||[]).forEach(c=>{ total++; const has=!!(c.evidencia||c.enlace); if(has){withE++; traces.push({oferente:o.nombre,reqId:c.reqId,evidencia:c.evidencia||'',enlace:c.enlace||''});} })); const tracePct=total? (withE/total)*100:0; return {savedHours:saved,a,m,b,avoidedUSD:avoided,overspend,riskCost,tracePct,traces}; }
+
+function renderKPIs(){ const ids=getOferentes(); const k=calcularKPIs(DATA,ids); $('#kpiCumplimiento').textContent=`${k.prom.toFixed(1)}%`; $('#kpiRiesgos').textContent=`${k.riesgos.A}/${k.riesgos.M}/${k.riesgos.B}`; $('#kpiCosto').textContent=(k.refC!=null)? `Δ ${fmtNum(k.deltaC)} vs ${fmtNum(k.refC)}`:'—'; $('#kpiPlazo').textContent=(k.refP!=null)? `Δ ${k.deltaP} d vs ${k.refP} d`:'—'; }
+function renderImpacto(){ const ids=getOferentes(); const x=calcularImpacto(DATA,ids); $('#kpiHoras').textContent=`${x.savedHours.toFixed(1)} h`; $('#kpiHorasNote').textContent=`asumiendo ${ASSUMPTIONS.reviewMinutesPerReq} min/req y ${Math.round(ASSUMPTIONS.automationFactor*100)}% automatizado`; $('#kpiCostoEv').textContent=`$ ${fmtNum(x.avoidedUSD)}`; $('#kpiCostoEvNote').textContent=`riesgos: $${fmtNum(x.riskCost)} + negociación: $${fmtNum(x.overspend)}`; $('#kpiRiesgosDetect').textContent=`${x.a}/${x.m}/${x.b}`; $('#kpiTraza').textContent=`${x.tracePct.toFixed(0)}%`; $('#kpiTrazaNote').textContent=`de cumplimientos con evidencia/enlace`;
+  const top=[]; DATA.oferentes.filter(o=>ids.includes(o.id)).forEach(o=> (o.riesgos||[]).forEach(r=>top.push({...r,oferente:o.nombre})) ); top.sort((a,b)=>({ALTO:3,MEDIO:2,BAJO:1}[b.nivel]-({ALTO:3,MEDIO:2,BAJO:1}[a.nivel])) ); const cont=$('#listaTopRiesgos'); cont.innerHTML=''; top.slice(0,6).forEach(r=>{ const div=document.createElement('div'); div.className='item'; div.innerHTML=`<div><b>${r.nivel}</b> · ${r.clausula}${r.pagina?` (p.${r.pagina})`:''} · <span class="muted">${r.oferente}</span></div><div>${r.descripcion||''}</div>`; cont.appendChild(div); }); const t=$('#listaTraza'); t.innerHTML=''; x.traces.slice(0,6).forEach(ev=>{ const div=document.createElement('div'); div.className='item'; const link=ev.enlace?` <a href="${ev.enlace}" target="_blank">ver evidencia</a>`:''; div.innerHTML=`<div><b>${ev.oferente}</b> · Req ${ev.reqId}</div><div>${ev.evidencia||'—'}${link}</div>`; t.appendChild(div); }); }
+function renderRadar(){ chartRadar?.destroy(); const ids=getOferentes(); const cats=Array.from(new Set((DATA.requisitos||[]).map(r=>r.categoria||'General'))); const datasets=ids.map(id=>{ const o=DATA.oferentes.find(x=>x.id===id); const porCat=cumplimientoPorCategoria(DATA,o); return {label:o.nombre,data:cats.map(c=>porCat[c]||0),fill:true};}); chartRadar=new Chart($('#radar'),{type:'radar',data:{labels:cats,datasets},options:{scales:{r:{suggestedMin:0,suggestedMax:100}}}}); }
+function renderBarras(){ chartBarras?.destroy(); const ids=getOferentes(); const all=new Set(); DATA.oferentes.forEach(o=>Object.keys(cumplimientoPorSub(DATA,o)).forEach(k=>all.add(k))); const keys=Array.from(all); const datasets=ids.map(id=>{ const o=DATA.oferentes.find(x=>x.id===id); const por=cumplimientoPorSub(DATA,o); return {label:o.nombre,data:keys.map(k=>por[k]||0)}; }); chartBarras=new Chart($('#barras'),{type:'bar',data:{labels:keys,datasets},options:{scales:{y:{beginAtZero:true,max:100}}}}); }
+function etiquetaEstado(e){ const m={CUMPLE:'✔️',PARCIAL:'➗','NO CUMPLE':'❌'}; return m[(e||'NO CUMPLE').toUpperCase()]||'❌'; }
+function renderTablas(){
+  const ofSel = getOferentes();
+  const catsSel = getCategorias();
+  const riesgo = getRiesgo();
+
+  // ---- Datos base
+  const nombres = Object.fromEntries((DATA.oferentes||[]).map(o=>[o.id,o.nombre]));
+  const cols = [{title:"Requisito",field:"req"},{title:"Categoría",field:"cat"}]
+    .concat(ofSel.map(id=>({title:nombres[id]||id,field:id,hozAlign:"center"})));
+
+  const rows = (DATA.requisitos||[])
+    .filter(r=>catsSel.includes(r.categoria||'General'))
+    .map(r=>{
+      const row={ req:`${r.texto} ${r.clausula&&r.clausula!=='—'?`(Cl. ${r.clausula})`:''}`, cat:r.categoria||'General' };
+      for(const id of ofSel){
+        const of = DATA.oferentes.find(o=>o.id===id);
+        const c = (of?.cumplimientos||[]).find(x=>x.reqId===r.id);
+        const e = (c?.estado||'NO CUMPLE').toUpperCase();
+        row[id] = e==='CUMPLE'?'✔️': e==='PARCIAL'?'➗':'❌';
+      }
+      return row;
     });
 
-    async function cargarDesde(url){
-      try{
-        const res = await fetch(url);
-        if(!res.ok) throw new Error(await res.text());
-        DATA = await res.json();
-        hidratarUI();
-      }catch(err){
-        console.error(err);
-        alert('No se pudo cargar el comparativo. Usa el demo para probar la UI.');
-      }
+  const riesgoRows = DATA.oferentes
+    .filter(o=>ofSel.includes(o.id))
+    .flatMap(o=>(o.riesgos||[]).map(r=>({
+      oferente:o.nombre,
+      nivel:(r.nivel||'').toString().toUpperCase().trim(),
+      clausula:r.clausula||'—',
+      pagina:r.pagina??'',
+      descripcion:r.descripcion||''
+    })))
+    .filter(r=> riesgo==='ALL' || r.nivel===riesgo);
+
+  // ---- Si Tabulator está cargado, úsalo:
+  if (window.Tabulator){
+    if(!window._tablaComp){
+      window._tablaComp = new Tabulator('#tablaComparativa',{height:380,layout:'fitColumns',columns:cols,data:rows});
+    }else{
+      _tablaComp.setColumns(cols); _tablaComp.setData(rows);
     }
-
-    function hidratarUI(){
-      // Oferentes
-      oferentesSelect.innerHTML = '';
-      (DATA.oferentes||[]).forEach(o=>{
-        const opt = document.createElement('option');
-        opt.value = o.id; opt.textContent = o.nombre;
-        opt.selected = true; // por defecto todos
-        oferentesSelect.appendChild(opt);
-      });
-
-      renderKPIs();
-      renderRadar();
-      renderBarras();
-      renderTablas();
+    if(!window._tablaRisk){
+      window._tablaRisk = new Tabulator('#tablaRiesgos',{height:380,layout:'fitColumns',data:riesgoRows,columns:[
+        {title:'Oferente',field:'oferente'},{title:'Nivel',field:'nivel'},
+        {title:'Cláusula',field:'clausula'},{title:'Página',field:'pagina'},
+        {title:'Descripción',field:'descripcion',widthGrow:2}
+      ]});
+    }else{
+      _tablaRisk.setData(riesgoRows);
     }
+    return;
+  }
+   // ---- Fallback sin Tabulator: dibujo tablas HTML simples
+  const makeTable = (el, headers, data) => {
+    const toTh = h=>`<th style="text-align:left;padding:8px;border-bottom:1px solid rgba(255,255,255,.1)">${h}</th>`;
+    const toTd = v=>`<td style="padding:8px;border-bottom:1px solid rgba(255,255,255,.06)">${v??''}</td>`;
+    el.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <thead><tr>${headers.map(toTh).join('')}</tr></thead>
+        <tbody>
+          ${data.map(r=>`<tr>${headers.map(h=>toTd(r[h]??r[h.field]??r[h.toLowerCase()]??r[h])).join('')}</tr>`).join('')}
+        </tbody>
+      </table>`;
+  };
 
-    function seleccionados(select){
-      return Array.from(select.options).filter(o=>o.selected).map(o=>o.value);
-    }
+  // Comparativa
+  const cmpHeaders = ['Requisito','Categoría'].concat(ofSel.map(id=>nombres[id]||id));
+  const cmpData = rows.map(r=>{
+    const o={ 'Requisito':r.req, 'Categoría':r.cat };
+    ofSel.forEach(id=> o[nombres[id]||id] = r[id]);
+    return o;
+  });
+  makeTable(document.querySelector('#tablaComparativa'), cmpHeaders, cmpData);
 
-    function renderKPIs(){
-      const ofSel = seleccionados(oferentesSelect);
-      const k = calcularKPIs(DATA, ofSel);
-      document.getElementById('kpiCumplimiento').textContent = k.cumplimientoGlobal? `${k.cumplimientoGlobal.toFixed(1)}%` : '—';
-      document.getElementById('kpiRiesgos').textContent = `${k.riesgos?.a||0}/${k.riesgos?.m||0}/${k.riesgos?.b||0}`;
-      const cTxt = (k.costo?.ref!=null)? `Δ ${fmtNum(k.costo.delta)} vs ${fmtNum(k.costo.ref)}` : '—';
-      const pTxt = (k.plazo?.ref!=null)? `Δ ${k.plazo.delta} d vs ${k.plazo.ref} d` : '—';
-      document.getElementById('kpiCosto').textContent = cTxt;
-      document.getElementById('kpiPlazo').textContent = pTxt;
-    }
+  // Riesgos
+  makeTable(document.querySelector('#tablaRiesgos'),
+    ['Oferente','Nivel','Cláusula','Página','Descripción'],
+    riesgoRows.map(r=>({
+      'Oferente':r.oferente, 'Nivel':r.nivel, 'Cláusula':r.clausula, 'Página':r.pagina, 'Descripción':r.descripcion
+    }))
+  );
+}
 
-    function renderRadar(){
-      const ctx = document.getElementById('radar');
-      chartRadar?.destroy();
-      const ofSel = seleccionados(oferentesSelect);
-      const cats = Array.from(new Set((DATA.requisitos||[]).map(r=>r.categoria)));
-      const datasets = ofSel.map((oid, idx)=>{
-        const of = DATA.oferentes.find(o=>o.id===oid);
-        const porCat = cumplimientoPorCategoria(DATA, of);
-        return {
-          label: of.nombre,
-          data: cats.map(c=>porCat[c]||0),
-          fill: true,
-        };
-      });
-      chartRadar = new Chart(ctx, {
-        type:'radar',
-        data:{ labels: cats, datasets },
-        options:{ plugins:{legend:{labels:{color: getComputedStyle(document.body).getPropertyValue('--ink')||'#e7eefc'}}}, scales:{ r:{ suggestedMin:0, suggestedMax:100 } } }
-      });
-    }
+function onFiltersChange(){ renderKPIs(); renderImpacto(); renderRadar(); renderBarras(); renderTablas(); }
 
-    function renderBarras(){
-      const ctx = document.getElementById('barras');
-      chartBarras?.destroy();
-      const ofSel = seleccionados(oferentesSelect);
-      const allKeys = new Set();
-      DATA.oferentes.forEach(o=>Object.keys(cumplimientoPorSub(DATA,o)).forEach(k=>allKeys.add(k)));
-      const keys = Array.from(allKeys);
-      const datasets = ofSel.map((oid)=>{
-        const of = DATA.oferentes.find(o=>o.id===oid);
-        const porSub = cumplimientoPorSub(DATA, of);
-        return { label: of.nombre, data: keys.map(k=>porSub[k]||0) };
-      });
-      chartBarras = new Chart(ctx, {
-        type:'bar',
-        data:{ labels: keys, datasets },
-        options:{ responsive:true, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true, max:100}} }
-      });
-    }
+// ===================== DROPLISTS =====================
+function makeMultiDroplist(el,items,labelEl,defaultText){ el.querySelector('.mdrop-btn').addEventListener('click',()=>{ el.classList.toggle('open'); }); const menu=el.querySelector('.mdrop-menu'); menu.innerHTML=''; items.forEach(it=>{ const row=document.createElement('label'); row.className='mdrop-item'; const cb=document.createElement('input'); cb.type='checkbox'; cb.value=it.value; cb.checked=it.checked??true; const sp=document.createElement('span'); sp.textContent=it.label; row.appendChild(cb); row.appendChild(sp); menu.appendChild(row); }); const update=()=>{ const sel=Array.from(menu.querySelectorAll('input:checked')).map(i=>items.find(x=>x.value==i.value)?.label); labelEl.textContent=sel.length? sel.join(', '):defaultText; }; menu.addEventListener('change',()=>{ update(); onFiltersChange(); }); document.addEventListener('click',e=>{ if(!el.contains(e.target)) el.classList.remove('open'); }); update(); return ()=> Array.from(menu.querySelectorAll('input:checked')).map(i=>i.value); }
+function makeSingleDroplist(el,items,labelEl,defaultText){ el.querySelector('.mdrop-btn').addEventListener('click',()=>{ el.classList.toggle('open'); }); const menu=el.querySelector('.mdrop-menu'); menu.innerHTML=''; items.forEach(it=>{ const row=document.createElement('div'); row.className='mdrop-item'; row.style.cursor='pointer'; row.textContent=it.label; row.addEventListener('click',()=>{ labelEl.textContent=it.label; el.dataset.value=it.value; el.classList.remove('open'); onFiltersChange(); }); menu.appendChild(row); }); document.addEventListener('click',e=>{ if(!el.contains(e.target)) el.classList.remove('open'); }); labelEl.textContent=defaultText; el.dataset.value=items[0]?.value??'ALL'; return ()=> el.dataset.value; }
 
-    function renderTablas(){
-      const ofSel = seleccionados(oferentesSelect);
-      const catsSel = seleccionados(categoriaSelect);
-      const riesgo = riesgoSelect.value;
+let getOferentes=()=>[], getCategorias=()=>[], getRiesgo=()=>'ALL';
 
-      // Comparativa req × oferentes
-      const cols = [
-        {title:"Requisito", field:"req", width:260},
-        {title:"Categoría", field:"cat", width:120},
-      ];
-      const nombres = {};
-      DATA.oferentes.forEach(o=>{nombres[o.id]=o.nombre});
-      ofSel.forEach(oid=>{
-        cols.push({title:nombres[oid]||oid, field:oid, hozAlign:"center", width:120});
-      });
+// ===================== Demo =====================
+function demoData(){ return { procesoId:'LIC-2025-001', referencia:{costo:100000,plazo_dias:60}, requisitos:[{id:'R-001',categoria:'Legal',sub:'Habilitantes',texto:'RUC vigente',peso:1.0,clausula:'2.1',pagina:5},{id:'R-002',categoria:'Tecnica',sub:'Experiencia',texto:'3 contratos similares',peso:1.2,clausula:'3.4',pagina:12},{id:'R-003',categoria:'Administrativa',sub:'Garantías',texto:'Garantía de seriedad de oferta',peso:1.0,clausula:'4.2',pagina:18}], oferentes:[{id:'O1',nombre:'Proveedor A',costo:98000,plazo_dias:55,cumplimientos:[{reqId:'R-001',estado:'CUMPLE',evidencia:'Certificado vigente'},{reqId:'R-002',estado:'PARCIAL',evidencia:'2 contratos'},{reqId:'R-003',estado:'NO CUMPLE'}], riesgos:[{nivel:'ALTO',clausula:'5.2',pagina:23,descripcion:'No acepta multas por mora'},{nivel:'MEDIO',clausula:'3.4',pagina:12,descripcion:'Experiencia insuficiente'}]},{id:'O2',nombre:'Proveedor B',costo:104000,plazo_dias:60,cumplimientos:[{reqId:'R-001',estado:'CUMPLE',evidencia:'Certificado vigente'},{reqId:'R-002',estado:'CUMPLE',evidencia:'3 contratos similares'},{reqId:'R-003',estado:'CUMPLE',evidencia:'Garantía bancaria'}], riesgos:[]}], pesosCategoria:{Legal:0.4,Tecnica:0.4,Administrativa:0.2} }; }
 
-      const rows = (DATA.requisitos||[])
-        .filter(r=>catsSel.includes(r.categoria))
-        .map(r=>{
-          const row = { req:`${r.texto} (Cl. ${r.clausula})`, cat:r.categoria };
-          for(const oid of ofSel){
-            const of = DATA.oferentes.find(o=>o.id===oid);
-            const c = (of.cumplimientos||[]).find(x=>x.reqId===r.id);
-            row[oid] = etiquetaEstado(c?.estado);
-          }
-          return row;
-        });
+// ===================== Arranque UI =====================
+async function hydrateFilters(){ const ofItems=(DATA.oferentes||[]).map(o=>({label:o.nombre,value:o.id,checked:true})); getOferentes=makeMultiDroplist($('#mdOferentes'),ofItems,$('#mdOferentesLabel'),'Oferentes: Ninguno'); const cats=Array.from(new Set((DATA.requisitos||[]).map(r=>r.categoria||'General'))); const catItems=cats.map(c=>({label:c,value:c,checked:true})); getCategorias=makeMultiDroplist($('#mdCategorias'),catItems,$('#mdCategoriasLabel'),'Categorías: Ninguna'); const riskItems=[{label:'Todos',value:'ALL'},{label:'Alto',value:'ALTO'},{label:'Medio',value:'MEDIO'},{label:'Bajo',value:'BAJO'}]; getRiesgo=makeSingleDroplist($('#mdRiesgo'),riskItems,$('#mdRiesgoLabel'),'Riesgo: Todos'); }
 
-      if(!tablaComp){
-        tablaComp = new Tabulator('#tablaComparativa', {
-          height: 380,
-          data: rows,
-          layout: 'fitColumns',
-          columns: cols,
-        });
-      }else{
-        tablaComp.setColumns(cols);
-        tablaComp.setData(rows);
-      }
+// Botones
+$('#btnDemo').addEventListener('click',()=>{ DATA=demoData(); hydrateFilters(); onFiltersChange(); });
+//$('#btnStatic').addEventListener('click',async()=>{ try{ await cargarDesde('/static/comparativo.json'); }catch(e){ alert('No se pudo leer /static/comparativo.json'); } });
+$('#btnCargarTipo').addEventListener('click',cargarTipoSeleccionado);
 
-      // Riesgos
-      const riesgoRows = DATA.oferentes
-        .filter(o=>ofSel.includes(o.id))
-        .flatMap(o=> (o.riesgos||[]).map(r=>({
-          oferente: o.nombre,
-          nivel: r.nivel,
-          clausula: r.clausula,
-          pagina: r.pagina,
-          descripcion: r.descripcion
-        })))
-        .filter(r=> riesgo==='ALL' || r.nivel===riesgo);
+// Poblar selector de tipos
+(async()=>{
+  const tipos=await cargarTipos();
+  const sel=$('#tipoSelect'); sel.innerHTML='';
+  tipos.forEach(t=>{ const opt=document.createElement('option'); opt.value=t.id; opt.textContent=t.label; if(t.json) opt.dataset.json=t.json; sel.appendChild(opt); });
+  sel.value='auto';
+})();
 
-      if(!tablaRisk){
-        tablaRisk = new Tabulator('#tablaRiesgos', {
-          height: 380,
-          data: riesgoRows,
-          layout: 'fitColumns',
-          columns: [
-            {title:'Oferente', field:'oferente'},
-            {title:'Nivel', field:'nivel'},
-            {title:'Cláusula', field:'clausula'},
-            {title:'Página', field:'pagina'},
-            {title:'Descripción', field:'descripcion', widthGrow:2},
-          ]
-        });
-      }else{
-        tablaRisk.setData(riesgoRows);
-      }
-    }
+// Inicio: intenta cargar comparativo.json, si falla cae a demo
+document.addEventListener('DOMContentLoaded', async()=>{
+  try{ await cargarDesde('/static/tipos/bienes_cotizacion.json'); }
+  catch{ DATA=demoData(); hydrateFilters(); onFiltersChange(); }
+});
 
-    function etiquetaEstado(est){
-      const e = (est||'NO CUMPLE').toUpperCase();
-      const map = { 'CUMPLE':'✔️', 'PARCIAL':'➗', 'NO CUMPLE':'❌' };
-      return map[e] || '❌';
-    }
-
-    const fmtNum = n => (n==null||Number.isNaN(n))? '—' : new Intl.NumberFormat('es-EC').format(Math.round(n));
-
-    // Demo embebido
-    function demoData(){
-      return {
-        procesoId: "LIC-2025-001",
-        referencia: { costo: 100000, plazo_dias: 60 },
-        requisitos: [
-          { id:"R-001", categoria:"Legal", sub:"Habilitantes", texto:"RUC vigente", peso:1.0, clausula:"2.1", pagina:5 },
-          { id:"R-002", categoria:"Tecnica", sub:"Experiencia", texto:"3 contratos similares", peso:1.2, clausula:"3.4", pagina:12 },
-          { id:"R-003", categoria:"Administrativa", sub:"Garantías", texto:"Garantía de seriedad de oferta", peso:1.0, clausula:"4.2", pagina:18 }
-        ],
-        oferentes: [
-          {
-            id:"O1", nombre:"Proveedor A", costo:98000, plazo_dias:55,
-            cumplimientos:[
-              {reqId:"R-001", estado:"CUMPLE"},
-              {reqId:"R-002", estado:"PARCIAL"},
-              {reqId:"R-003", estado:"NO CUMPLE"}
-            ],
-            riesgos:[
-              {nivel:"ALTO", clausula:"5.2", pagina:23, descripcion:"No acepta multas por mora"},
-              {nivel:"MEDIO", clausula:"3.4", pagina:12, descripcion:"Experiencia insuficiente"}
-            ]
-          },
-          {
-            id:"O2", nombre:"Proveedor B", costo:104000, plazo_dias:60,
-            cumplimientos:[
-              {reqId:"R-001", estado:"CUMPLE"},
-              {reqId:"R-002", estado:"CUMPLE"},
-              {reqId:"R-003", estado:"CUMPLE"}
-            ],
-            riesgos:[]
-          }
-        ],
-        pesosCategoria: { Legal:0.4, Tecnica:0.4, Administrativa:0.2 }
-      };
-    }
-
-    // Arranque con demo para que veas el look & feel con tu CSS
-    DATA = demoData();
-    hidratarUI();
-
-    // Re-render al cambiar selects
-    oferentesSelect.addEventListener('change', ()=>{renderKPIs();renderRadar();renderBarras();renderTablas();});
-    categoriaSelect.addEventListener('change', ()=>{renderKPIs();renderRadar();renderBarras();renderTablas();});
-    riesgoSelect.addEventListener('change', ()=>{renderTablas();});
-  </script>
+})();
+</script>
 </body>
 </html>
