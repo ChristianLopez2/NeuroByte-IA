@@ -39,6 +39,8 @@ from typing import List, Dict, Any, Optional, Tuple
 from fastapi import FastAPI, UploadFile, File, HTTPException, Response, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 # LangChain / OpenAI / Vector
@@ -67,6 +69,7 @@ except Exception:
 
 # YAML
 import yaml
+templates = Jinja2Templates(directory="templates")
 
 # =========================
 # Settings
@@ -388,19 +391,75 @@ def classify_upload(pdf_path: Path) -> Dict[str, Any]:
     m = CFG.match_facets(f"{pdf_path.name}\n{head}")
     return {"familia": m.get("familia"), "procedimiento": m.get("procedimiento"), "doc_role": None, "upload_kind": "oferta"}
 
-def index_uploaded_pdf(pdf_path: Path, collection_name: str) -> int:
+# def index_uploaded_pdf(pdf_path: Path, collection_name: str) -> int:
+#     vs = _ensure_chroma(collection_name)
+#     try: vs._collection.delete(where={"source": {"$eq": pdf_path.name}})
+#     except Exception: pass
+#     text = extract_text_from_pdf(pdf_path)
+#     if not text: return 0
+#     u = classify_upload(pdf_path)
+#     meta = {"path": str(pdf_path), "source": pdf_path.name, "collection": collection_name, **u}
+#     docs = to_documents(text, meta=meta)
+#     if docs:
+#         vs.add_documents(docs)
+#         try: vs.persist()
+#         except Exception: pass
+#     return len(docs)
+
+FAMILIA_PROCEDIMIENTO_VALIDOS = [
+    {"familia": "bienes_servicios", "procedimiento": "Cotizacion"},
+    {"familia": "bienes_servicios", "procedimiento": "Licitacion"},
+    {"familia": "bienes_servicios", "procedimiento": "Menor Cuantía"},
+    {"familia": "bienes_servicios", "procedimiento": "Subasta Inversa Electrónica"},
+    {"familia": "consultoria", "procedimiento": "Licitacion"},
+    {"familia": "obras", "procedimiento": "Cotizacion"},
+    {"familia": "obras", "procedimiento": "Menor Cuantía"},
+    {"familia": "seguros", "procedimiento": "Licitacion"},
+    {"familia": "regimen_especial", "procedimiento": "Pliego"}
+]
+
+def index_uploaded_pdf(pdf_path: Path, collection_name: str, familia: str, procedimiento: str) -> int:
+    # Si falta familia o procedimiento, intentar clasificarlos
+    if not familia or not procedimiento:
+        clasif = classify_upload(pdf_path)
+        familia = (clasif.get("familia") or "").strip()
+        procedimiento = (clasif.get("procedimiento") or "").strip()
+
+    # Validar que estén en la lista permitida
+    if not any(
+        familia == fp["familia"] and procedimiento == fp["procedimiento"]
+        for fp in FAMILIA_PROCEDIMIENTO_VALIDOS
+    ):
+        return 0  # No hay match válido → no indexar
+
     vs = _ensure_chroma(collection_name)
-    try: vs._collection.delete(where={"source": {"$eq": pdf_path.name}})
-    except Exception: pass
+    try:
+        vs._collection.delete(where={"source": {"$eq": pdf_path.name}})
+    except Exception:
+        pass
+
     text = extract_text_from_pdf(pdf_path)
-    if not text: return 0
-    u = classify_upload(pdf_path)
-    meta = {"path": str(pdf_path), "source": pdf_path.name, "collection": collection_name, **u}
+    if not text:
+        return 0
+
+    # Meta obligatoria desde el front
+    meta = {
+        "path": str(pdf_path),
+        "source": pdf_path.name,
+        "collection": collection_name,
+        "familia": (familia or "").strip(),
+        "procedimiento": (procedimiento or "").strip(),
+        "doc_role": None,
+        "upload_kind": "oferta",
+    }
+
     docs = to_documents(text, meta=meta)
     if docs:
         vs.add_documents(docs)
-        try: vs.persist()
-        except Exception: pass
+        try:
+            vs.persist()
+        except Exception:
+            pass
     return len(docs)
 
 # =========================
@@ -750,43 +809,68 @@ async def upload_pdf(
         with dest.open("wb") as out:
             out.write(pdf_bytes)
 
-        # 3) Indexar
-        chunks = index_uploaded_pdf(dest, S.UPLOADS_COLLECTION)
+        # 3) Indexar usando EXCLUSIVAMENTE lo enviado desde el front
+        chunks = index_uploaded_pdf(
+            dest,
+            S.UPLOADS_COLLECTION,
+            familia or "",
+            procedimiento or ""
+        )
 
+        if chunks > 0:
         # 4) Registrar RUC en índice en memoria
-        async with ANALYSIS_LOCK:
-            UPLOAD_RUC_INDEX[safe] = ruc  # puede ser None
+            async with ANALYSIS_LOCK:
+                UPLOAD_RUC_INDEX[safe] = ruc  # puede ser None
 
-        # 5) Establecer familia y proceso
-        # if _get_current_process() is None:
-        #     # Clasifica por nombre + head del PDF
-        #     try:
-        #         head = extract_text_head(dest)
-        #         m = CFG.match_facets(f"{dest.name}\n{head}")
-        #         fam, proc = m.get("familia"), m.get("procedimiento")
-        #         if fam and proc:
-        #             auto_process = {"familia": fam, "procedimiento": proc}
-        #             _set_current_process(auto_process)
-        #         else:
-        #             auto_process = None
-        #     except Exception:
+            # 5) Establecer familia y proceso
+            if familia and procedimiento:
+                auto_process = {"familia": familia.strip(), "procedimiento": procedimiento.strip()}
+                try:
+                    _set_current_process(auto_process)
+                except Exception:
+                    pass
+
+            saved.append({
+                "filename": safe,
+                "chunks": chunks,
+                "skipped": False,
+                "ruc": ruc
+            })
+
+        # # 4) Registrar RUC en índice en memoria
+        # async with ANALYSIS_LOCK:
+        #     UPLOAD_RUC_INDEX[safe] = ruc  # puede ser None
+
+        # # 5) Establecer familia y proceso
+        # # if _get_current_process() is None:
+        # #     # Clasifica por nombre + head del PDF
+        # #     try:
+        # #         head = extract_text_head(dest)
+        # #         m = CFG.match_facets(f"{dest.name}\n{head}")
+        # #         fam, proc = m.get("familia"), m.get("procedimiento")
+        # #         if fam and proc:
+        # #             auto_process = {"familia": fam, "procedimiento": proc}
+        # #             _set_current_process(auto_process)
+        # #         else:
+        # #             auto_process = None
+        # #     except Exception:
+        # #         auto_process = None
+        # try:
+        #     fam, proc = familia, procedimiento
+        #     if fam and proc:
+        #         auto_process = {"familia": fam, "procedimiento": proc}
+        #         _set_current_process(auto_process)
+        #     else:
         #         auto_process = None
-        try:
-            fam, proc = familia, procedimiento
-            if fam and proc:
-                auto_process = {"familia": fam, "procedimiento": proc}
-                _set_current_process(auto_process)
-            else:
-                auto_process = None
-        except Exception:
-            auto_process = None
+        # except Exception:
+        #     auto_process = None
 
-        saved.append({
-            "filename": safe,
-            "chunks": chunks,
-            "skipped": False,
-            "ruc": ruc
-        })
+        # saved.append({
+        #     "filename": safe,
+        #     "chunks": chunks,
+        #     "skipped": False,
+        #     "ruc": ruc
+        # })
 
     try:
         sync_uploads_index()
@@ -1005,6 +1089,14 @@ class ChatRequest(BaseModel):
 
 @app.on_event("startup")
 def startup_index_base():
+    reset_and_index()
+
+@app.get("/", response_class=HTMLResponse)
+async def home():
+    reset_and_index()
+    return templates.TemplateResponse("index.html", {"request": {}})  
+
+def reset_and_index():
     index_knowledge_tree(S.KNOWLEDGE_DIR, S.BASE_COLLECTION)
     # limpiar uploads en disco e índice
     try:

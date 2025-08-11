@@ -1,0 +1,70 @@
+[
+  {
+    "secciones": {
+      "legales": [
+        "Cumple con toda la normativa general, sectorial y especial"
+      ],
+      "tecnicas": [
+        "Garantiza que los bienes a proveerse son nuevos y de buena calidad",
+        "Compromiso de reponer bienes en mal estado"
+      ],
+      "economicas": [],
+      "otros": []
+    },
+    "procesoId": "S-L-2025-001",
+    "referencia": {
+      "costo": null,
+      "plazo_dias": 30
+    },
+    "requisitos": [
+      {
+        "id": "R-001",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "4. Al presentar esta oferta, cumple con toda la normativa general, sectorial y especial",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      }
+    ],
+    "oferentes": [
+      {
+        "id": "O1",
+        "nombre": "VIPESA CONSTRUCCIONES CIA.LTDA.",
+        "costo": null,
+        "plazo_dias": 30,
+        "cumplimientos": [
+          {
+            "reqId": "R-001",
+            "estado": "CUMPLE",
+            "evidencia": "Declaración en la oferta"
+          }
+        ],
+        "riesgos": []
+      }
+    ],
+    "riesgos": [
+      {
+        "tipo": "economico",
+        "detalle": "No se especifican costos, lo que puede afectar la evaluación",
+        "critico": true
+      }
+    ],
+    "diferencias_clave": [],
+    "recomendaciones": [
+      "Incluir costo en la oferta"
+    ],
+    "ruc_validacion": {
+      "ruc": "0190373479001",
+      "nombre": "VIPESA CONSTRUCCIONES CIA.LTDA.",
+      "habilitado": true,
+      "notas": "OK"
+    },
+    "semaforo": "aprobado",
+    "pesosCategoria": {
+      "Legal": 0.4,
+      "Tecnica": 0.4,
+      "Economica": 0.2
+    }
+  }
+]

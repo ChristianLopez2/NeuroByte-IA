@@ -154,7 +154,7 @@ html { scroll-behavior: smooth; }
 
 /* APP RAG */
 .chat-shell{
-  max-width: 1100px;
+  max-width: 2500px;
   margin: 0 auto;
   padding: 20px;
 }
