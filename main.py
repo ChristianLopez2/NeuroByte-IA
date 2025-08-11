@@ -1,4 +1,36 @@
 # -*- coding: utf-8 -*-
+"""
+RAG Licitaciones – Backend FastAPI
+==================================
+
+Este módulo implementa un backend para analizar licitaciones usando un enfoque RAG
+(Retrieval Augmented Generation). Permite:
+
+- Indexar documentos base (normativa/modelos) y documentos subidos (ofertas) en ChromaDB.
+- Extraer texto de PDFs con PyMuPDF y OCR (Tesseract / EasyOCR opcional).
+- Detectar metadatos de proceso (familia/procedimiento/doc_role) a través de patrones YAML.
+- Consultar el SRI para validar RUCs de oferentes.
+- Construir prompts robustos con “candidatos confiables” (anti-alucinación) para el LLM.
+- Responder comparativos y JSON de decisión normalizado por oferta.
+- Persistir resultados por “tipo de proceso” en `/static/tipos/*.json`.
+
+Estructura principal
+--------------------
+- Settings: rutas, modelos, opciones de chunking, top‑K, etc.
+- OCR/PDF utils: extracción de texto eficiente con “head” para clasificación rápida.
+- KBConfig: lectura de `knowledge/kb_config.yaml` con facets (familia, procedimiento, rol).
+- Vector stores: Chroma para BASE y UPLOADS.
+- SRI/RUC: utilidades para normalizar y validar estado del contribuyente.
+- Extractores: regex y heurísticas anti-alucinación (IDs, montos, plazos, cláusulas).
+- Prompt unificado: especifica formato de salida y reglas de decisión.
+- Endpoints: `/api/upload-pdf`, `/api/chat`, `/api/tipos-licitacion`, etc.
+- Persistencia: guarda `respuesta2` por “destino” en `/static/tipos/*.json` con IDs únicos.
+
+Notas
+-----
+- No se altera la lógica original. Solo se agregan docstrings/comentarios.
+- Pensado para Python 3.10+.
+"""
 from __future__ import annotations
 import os, re, json, shutil, unicodedata, hashlib, asyncio
 from pathlib import Path
