@@ -29,6 +29,7 @@
         <div class="row">
           <input id="q" class="input" type="text" placeholder="Podemos ayudarte en algo mas? Cuentanos... (Opcional)" />
           <button id="ask" class="btn">Analizar</button>
+          <button id="openDash" class="btn" type="button">Ver Dashboard</button>
         </div>
         <div id="chat" class="chat-box"></div>
       </section>
@@ -43,7 +44,7 @@
       <section class="u-mt">
         <h2 class="section-title">Cargar Licitaciones</h2>
         <div class="row">
-          <input id="files" type="file" accept="application/pdf" />
+          <input id="files" type="file" accept="application/pdf" multiple />
           <button id="upload" class="btn">Subir</button>
           <span id="status" class="tiny"></span>
         </div>
@@ -124,11 +125,30 @@ async function apiGet(path){
   if(!r.ok) throw new Error(`${r.status} ${r.statusText}`);
   return r.json();
 }
-async function apiUpload(path, files){
+
+async function apiUpload(path, files) {
   const fd = new FormData();
-  for(const f of files) fd.append("files", f);
-  const r = await fetch(`${API_BASE}${path}`, { method:"POST", body: fd });
-  if(!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+
+  // Archivos
+  for (const f of files) {
+    fd.append("files", f);
+  }
+
+  // Obtener valor del select y parsearlo
+  const processSelect = document.getElementById("process");
+  if (processSelect) {
+    try {
+      const selectedValue = JSON.parse(processSelect.value);
+      fd.append("familia", selectedValue.familia || "");
+      fd.append("procedimiento", selectedValue.procedimiento || "");
+    } catch (err) {
+      console.error("Error al parsear el valor de 'process':", err);
+    }
+  }
+
+  // Enviar petición
+  const r = await fetch(`${API_BASE}${path}`, { method: "POST", body: fd });
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
   return r.json();
 }
 
@@ -425,20 +445,20 @@ document.getElementById("ask").onclick = async () => {
       htmlOut += `<div class="msg bot">🤷 No hay narrativa para mostrar.</div>`;
     }
 
-    // ===== JSON de decisión (details por archivo) =====
-    if (r2.por_archivo?.length){
-      const blocJ = r2.por_archivo.map(({ archivo, json })=>{
-        const jsonStr = JSON.stringify(json ?? {}, null, 2);
-        return `
-          <details style="margin-top:12px" class="card">
-            <summary style="cursor:pointer">🧾 JSON de decisión — ${escapeHtml(archivo||"Oferta")}</summary>
-            <pre style="white-space:pre-wrap;margin:.5rem 0 0 0">${escapeHtml(jsonStr)}</pre>
-          </details>`;
-      }).join("");
-      htmlOut += `<div>${blocJ}</div>`;
-    } else {
-      htmlOut += `<div class="msg bot">🧩 No se generó JSON de decisión.</div>`;
-    }
+    // // ===== JSON de decisión (details por archivo) =====
+    // if (r2.por_archivo?.length){
+    //   const blocJ = r2.por_archivo.map(({ archivo, json })=>{
+    //     const jsonStr = JSON.stringify(json ?? {}, null, 2);
+    //     return `
+    //       <details style="margin-top:12px" class="card">
+    //         <summary style="cursor:pointer">🧾 JSON de decisión — ${escapeHtml(archivo||"Oferta")}</summary>
+    //         <pre style="white-space:pre-wrap;margin:.5rem 0 0 0">${escapeHtml(jsonStr)}</pre>
+    //       </details>`;
+    //   }).join("");
+    //   htmlOut += `<div>${blocJ}</div>`;
+    // } else {
+    //   htmlOut += `<div class="msg bot">🧩 No se generó JSON de decisión.</div>`;
+    // }
 
     // ===== Un solo render consolidado (sin duplicar) =====
     renderSnapshot(htmlOut);
@@ -536,10 +556,18 @@ function stopProgress(ok=true){
   if (wrap) setTimeout(()=>{ wrap.style.display='none'; setProgress(0,''); }, 900);
 }
 
+const $openDash = document.getElementById("openDash");
+$openDash.addEventListener("click", () => {
+  const proc = $process?.value || "auto"; // "auto" o el JSON del combo
+  const base = "/dashboard.html";          // si montaste templates en "/"
+  const url = `${base}?process=${encodeURIComponent(proc)}`;
+  window.open(url, "_blank");
+});
+
+
 refreshList();
 loadProcesses().then(hydrateDetectedProcess);
 </script>
-
 
 
 </body>

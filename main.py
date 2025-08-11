@@ -4,7 +4,7 @@ import os, re, json, shutil, unicodedata, hashlib, asyncio
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Response
+from fastapi import FastAPI, UploadFile, File, HTTPException, Response, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -24,6 +24,7 @@ import fitz  # PyMuPDF
 from PIL import Image
 import numpy as np
 import pytesseract
+
 try:
     import easyocr
     EASY_READER = easyocr.Reader(['es','en'], gpu=False)
@@ -560,7 +561,13 @@ Devuelve UN ÚNICO JSON **válido** exactamente con esta forma:
   },
   "respuesta2": {
     "por_archivo": [
-      { "archivo": "<stem>", "json": {
+      { "archivo": "<stem>",
+        "destino": {
+            "familia": "<string|null>",
+            "procedimiento": "<string|null>",
+            "label": "<familia> — <procedimiento>|null"
+        },
+        "json": {
           "secciones": {
             "legales":    ["..."],
             "tecnicas":   ["..."],
@@ -600,9 +607,23 @@ Devuelve UN ÚNICO JSON **válido** exactamente con esta forma:
 }
 
 # CRITERIOS ESPECÍFICOS PARA 'respuesta2.json'
-- "procesoId": toma EXACTAMENTE de base.procesoIds (si no hay → null).
-- "referencia.costo" y "referencia.plazo_dias": SOLO de base.costos / base.plazos_dias (si no hay → null).
-- "oferentes[0].nombre": SOLO de oferta.nombres_posibles; "costo"/"plazo_dias": SOLO de oferta.costos / oferta.plazos_dias.
+- "destino": tomarlo EXCLUSIVAMENTE del BLOQUE: Dejar destino = label;
+- "procesoId": toma EXACTAMENTE de base.procesoIds (si no hay → null);
+- "referencia.costo" y "referencia.plazo_dias": SOLO de base.costos / base.plazos_dias (si no hay → null);
+- "oferentes[0].nombre": SOLO de oferta.nombres_posibles, NUNCA usar el nombre del archivo, ni el contenido de la BASE
+    ÚNICAMENTE buscar en el texto de la OFERTA (fuente oferta o documentos adjuntos que correspondan a la oferta).
+    Prioridad de búsqueda:
+        Razón social que aparezca junto a frases como:
+        “Adjudicado a: …”
+        “Contratista: …”
+        “Proveedor: …”
+        “Razón Social: …”
+        “Entre … y …”
+        Razón social que aparezca asociada a un RUC detectado en la OFERTA.
+        El texto detectado debe usarse tal cual aparece (no abreviar, no traducir, no corregir ortografía).
+        Si no hay coincidencia clara en la OFERTA, dejar nombre como null
+    ; 
+- "costo"/"plazo_dias": SOLO de oferta.costos / oferta.plazos_dias.
 - "requisitos": cada "texto" debe ser **cita literal** de base.req_samples (sin parafrasear). Incluye 5–20 si hay suficientes.
   - "clausula": intenta mapear con base.clausulas; si no aplica → null.
   - "peso": si no hay criterio, usa 1.0; rango [0.5, 2.0].
@@ -668,7 +689,11 @@ def list_processes():
 # Uploads Endpoints
 # =========================
 @app.post("/api/upload-pdf")
-async def upload_pdf(files: List[UploadFile] = File(...)):
+async def upload_pdf(
+    files: List[UploadFile] = File(...),
+    familia: Optional[str] = Form(None),
+    procedimiento: Optional[str] = Form(None)
+):
     if not files:
         raise HTTPException(status_code=400, detail="No se recibieron archivos.")
 
@@ -700,20 +725,29 @@ async def upload_pdf(files: List[UploadFile] = File(...)):
         async with ANALYSIS_LOCK:
             UPLOAD_RUC_INDEX[safe] = ruc  # puede ser None
 
-        # 5) === Detección automática de proceso (solo si no existe aún) ===
-        if _get_current_process() is None:
-            # Clasifica por nombre + head del PDF
-            try:
-                head = extract_text_head(dest)
-                m = CFG.match_facets(f"{dest.name}\n{head}")
-                fam, proc = m.get("familia"), m.get("procedimiento")
-                if fam and proc:
-                    auto_process = {"familia": fam, "procedimiento": proc}
-                    _set_current_process(auto_process)
-                else:
-                    auto_process = None
-            except Exception:
+        # 5) Establecer familia y proceso
+        # if _get_current_process() is None:
+        #     # Clasifica por nombre + head del PDF
+        #     try:
+        #         head = extract_text_head(dest)
+        #         m = CFG.match_facets(f"{dest.name}\n{head}")
+        #         fam, proc = m.get("familia"), m.get("procedimiento")
+        #         if fam and proc:
+        #             auto_process = {"familia": fam, "procedimiento": proc}
+        #             _set_current_process(auto_process)
+        #         else:
+        #             auto_process = None
+        #     except Exception:
+        #         auto_process = None
+        try:
+            fam, proc = familia, procedimiento
+            if fam and proc:
+                auto_process = {"familia": fam, "procedimiento": proc}
+                _set_current_process(auto_process)
+            else:
                 auto_process = None
+        except Exception:
+            auto_process = None
 
         saved.append({
             "filename": safe,
@@ -731,7 +765,7 @@ async def upload_pdf(files: List[UploadFile] = File(...)):
     return {
         "ok": True,
         "files": saved,
-        "detected_process": auto_process or _get_current_process()
+        "detected_process": auto_process
     }
 
 @app.get("/api/list-pdf")
@@ -1175,16 +1209,23 @@ async def chat_endpoint(req: ChatRequest):
         cands = extract_candidates(ctx, stem)
         ruc_info = await validate_ruc_for_offer(stem)
         ruc = ruc_info.get("ruc")
-        return ctx, cands, ruc_info, ruc
+        return ctx, cands, ruc_info, ruc, up_meta
 
     # -------- Analizar stems pendientes (uno por uno) --------
     llm = make_llm(temperature=0.0)
     mixed_r1, mixed_r2, comparativos = [], [], []
 
     for stem in stems_to_analyze:
-        ctx, cands, ruc_info, ruc = await build_ctx_for_stem(stem)
+        ctx, cands, ruc_info, ruc, up_meta = await build_ctx_for_stem(stem)
+
+        destino_candidato = {
+            "familia": up_meta.get("familia"),
+            "procedimiento": up_meta.get("procedimiento")
+        }
+
         bloque = (
             f"\n=== OFERTA: {stem} ===\n"
+            f"# DESTINO_CANDIDATO\n{json.dumps(destino_candidato, ensure_ascii=False)}\n"
             f"# CANDIDATOS_CONFIABLES\n{json.dumps(cands, ensure_ascii=False)}\n"
             f"# RUC_VALIDACION\n{json.dumps(ruc_info, ensure_ascii=False)}\n"
             f"# CONTEXTO RAG (recortado)\n{ctx}\n"
@@ -1239,13 +1280,163 @@ async def chat_endpoint(req: ChatRequest):
     except Exception:
         pass
 
+    await persist_respuesta2_items(mixed_r2)
+
     return {
         "respuesta1": {"por_archivo": mixed_r1, "comparativo_texto": comparativo_final[:1200]},
         "respuesta2": {"por_archivo": mixed_r2},
         "_source": "per-file"
     }
+
 # ========= /CHAT ENDPOINT =========
+@app.get("/api/tipos-licitacion")
+def list_tipos_licitacion():
+    tipos_dir = S.BASE_DIR / "static" / "tipos"
+    items = []
+    for p in sorted(tipos_dir.glob("*.json")):
+        fname = p.name  # value del <option>
+        # Label bonito desde el filename slug
+        base = p.stem.replace("__", " — ").replace("_", " ")
+        # Capitaliza simple (puedes mejorar con un mapa si quieres)
+        label = " ".join(w.capitalize() if w.lower() not in {"y","de","del","la","el","los","las"} else w.lower()
+                         for w in base.split())
+        items.append({"id": fname, "label": label})
+    return items
+
 
 # Static (front)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/", StaticFiles(directory="templates", html=True), name="front")
+
+from datetime import datetime
+
+DEST_DIR = S.BASE_DIR / "static" / "tipos"
+DEST_DIR.mkdir(parents=True, exist_ok=True)
+PERSIST_LOCK = asyncio.Lock()
+
+def _safe_json_filename(name: str) -> Path:
+    n = (name or "").strip()
+    if not n.endswith(".json"):
+        n += ".json"
+    return DEST_DIR / Path(n).name
+
+def _slug(s: str) -> str:
+    s = ''.join(c for c in unicodedata.normalize("NFD", s or "") if unicodedata.category(c) != "Mn")
+    s = re.sub(r'[^A-Za-z0-9]+', '_', s).strip('_').lower()
+    return s or "destino"
+
+def _dest_path_from_item(it: dict) -> Optional[Path]:
+    dest = it.get("destino")
+    if isinstance(dest, str) and dest.strip():
+        # si viene como label, generamos un filename seguro
+        return _safe_json_filename(_slug(dest))
+    if isinstance(dest, dict):
+        fam = dest.get("familia") or ""
+        proc = dest.get("procedimiento") or ""
+        if fam or proc:
+            fname = f"{_slug(fam)}__{_slug(proc)}.json"
+        else:
+            label = dest.get("label") or "destino"
+            fname = f"{_slug(label)}.json"
+        return _safe_json_filename(fname)
+    return None
+
+def _load_json_array(path: Path) -> list:
+    if not (path.exists() and path.stat().st_size > 0):
+        return []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, list):
+                return data
+            if isinstance(data, dict):
+                return [data]
+    except Exception:
+        pass
+    return []
+
+def _prefix_from_tipo(familia: str, procedimiento: str) -> str:
+    def initials(txt: str) -> str:
+        toks = re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9]+", txt or "")
+        toks = [t for t in toks if t.lower() not in {"y","de","del","la","el","los","las"}]
+        return "".join(t[:1].upper() for t in toks) or "GEN"
+    return f"{initials(familia)}-{initials(procedimiento)}"
+
+PID_RE = re.compile(r"^([A-Z0-9]+-[A-Z0-9]+)-(\d{4})-(\d{3,})$")
+
+def _ensure_unique_proceso_id(payload: dict, existing_ids: set[str], familia: str, procedimiento: str) -> str:
+    raw = (payload or {}).get("procesoId")
+    if isinstance(raw, str) and raw.strip() and raw not in existing_ids:
+        return raw.strip()
+    prefix = _prefix_from_tipo(familia, procedimiento)
+    year = datetime.now().year
+    max_seq = 0
+    for pid in existing_ids:
+        m = PID_RE.match(pid or "")
+        if not m:
+            continue
+        pfx, yy, nn = m.group(1), m.group(2), m.group(3)
+        if pfx == prefix and yy == str(year):
+            try: max_seq = max(max_seq, int(nn))
+            except Exception: pass
+    return f"{prefix}-{year}-{max_seq+1:03d}"
+
+def _collect_existing_ids_globally() -> set[str]:
+    ids = set()
+    for p in DEST_DIR.glob("*.json"):
+        for it in _load_json_array(p):
+            if isinstance(it, dict) and it.get("procesoId"):
+                ids.add(str(it["procesoId"]))
+    return ids
+
+async def persist_respuesta2_items(items: list[dict]):
+    if not items:
+        return
+
+    # agrupar por archivo destino
+    buckets: dict[Path, list[dict]] = {}
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        path = _dest_path_from_item(it)
+        payload = it.get("json")
+        dest_info = it.get("destino") or {}
+        if not path or not isinstance(payload, dict):
+            continue
+
+        # familia/procedimiento para el prefijo de procesoId
+        fam = proc = ""
+        if isinstance(dest_info, dict):
+            fam = dest_info.get("familia") or ""
+            proc = dest_info.get("procedimiento") or ""
+            label = dest_info.get("label") or ""
+            if not fam or not proc:
+                # intenta inferir de label si falta alguno
+                parts = [p.strip() for p in re.split(r"—|-{1,2}", label, maxsplit=1)] if label else []
+                if len(parts) == 2:
+                    fam = fam or parts[0]
+                    proc = proc or parts[1]
+        elif isinstance(dest_info, str):
+            label = dest_info
+            parts = [p.strip() for p in re.split(r"—|-{1,2}", label, maxsplit=1)]
+            if len(parts) == 2:
+                fam, proc = parts
+
+        buckets.setdefault(path, []).append({"payload": payload, "familia": fam, "procedimiento": proc})
+
+    async with PERSIST_LOCK:
+        global_ids = _collect_existing_ids_globally()
+        for path, lst in buckets.items():
+            arr = _load_json_array(path)
+            file_ids = { (it or {}).get("procesoId","") for it in arr if isinstance(it, dict) }
+            existing_ids = global_ids | file_ids
+
+            for e in lst:
+                payload = e["payload"]
+                pid = _ensure_unique_proceso_id(payload, existing_ids, e["familia"], e["procedimiento"])
+                payload["procesoId"] = pid
+                existing_ids.add(pid)
+                arr.append(payload)
+
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(arr, f, ensure_ascii=False, indent=2)

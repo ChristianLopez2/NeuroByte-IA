@@ -16,6 +16,18 @@
       {
         "archivo": "44890047",
         "texto": "Oferta: 44890047\nOferente: 44890047 — costo: N/D, plazo: 30 días\nRUC 1002426128001 — HABILITADO (Razón social: REINA BECERRA JULIO ANDRES, Estado: ACTIVO)\nSemáforo: APROBADO\nCumplimientos relevantes:\n- Acepta que en el caso de que se comprobare una violación a los compromisos, la Entidad Contratante le descalifique como oferente (Formulario-Único-de-la-Oferta, pág. N/D).\n- Declara que se obliga a guardar absoluta reserva de la información confiada (Formulario-Único-de-la-Oferta, pág. N/D).\n- La garantía técnica rige desde la firma del Acta de Entrega-Recepción (44890047, pág. N/D).\nBrechas detectadas y acciones:\n- No se encontró evidencia de cumplimiento de los requisitos mínimos establecidos en el pliego, ACCIÓN CONCRETA: Incluir en la oferta la documentación que respalde el cumplimiento de los requisitos mínimos (Manual-MFC-Licitacion-Bienes-Entidades-Contratantes, pág. N/D).\nRiesgos del oferente: [BAJO] No se identificaron riesgos críticos que afecten garantías, multas o plazos.\nPesos categoría: Legal 0.4, Técnica 0.4, Económica 0.2"
+      },
+      {
+        "archivo": "oferta_correcta",
+        "texto": "Oferta: oferta_correcta\nReferencia BASE — costo: N/D, plazo: N/D días\nOferente: oferta_correcta — costo: N/D, plazo: N/D días\nSemáforo: APROBADO\nCumplimientos relevantes:\n- Cumple con toda la normativa general, sectorial y especial aplicable a su actividad económica, profesión, ciencia u oficio; y, que los equipos e instrumentos que se utilizarán para la ejecución, en caso de adjudicación del contrato, serán de propiedad del oferente o arrendados y contarán con todos los permisos que se requieran para su utilización. (DOC: FORMULARIO-UNICO-DE-LA-OFERTA-DE-CONSULTORIA)\n- Considera todos los costos obligatorios que debe y deberá asumir en la ejecución contractual, especialmente aquellos relacionados con obligaciones sociales, laborales, de seguridad social, ambientales y tributarias vigentes. (DOC: FORMULARIO-UNICO-DE-LA-OFERTA-DE-CONSULTORIA)\n- Se incluye la Nómina de Accionistas y Beneficiario Final con toda la información requerida. (DOC: oferta_correcta)\n- Los índices financieros cumplen o superan los valores mínimos establecidos. (DOC: oferta_correcta)\n- Se presenta la Declaración de Valor Agregado Ecuatoriano con sus respaldos. (DOC: oferta_correcta)\nBrechas detectadas y acciones:\n- No se encontró información sobre el RUC del oferente, se debe proporcionar el RUC para validar la habilitación. (DOC: oferta_correcta)\nRiesgos del oferente: Ninguno detectado.\nPesos categoría: Legal 0.4, Técnica 0.4, Económica 0.2"
+      },
+      {
+        "archivo": "CHUCHUCA MERA ALEJANDRA CAROLINA",
+        "texto": "Oferta: CHUCHUCA MERA ALEJANDRA CAROLINA\nReferencia BASE — costo: N/D, plazo: N/D días\nOferente: CHUCHUCA MERA ALEJANDRA CAROLINA — costo: N/D, plazo: N/D días\nRUC N/D — NO HABILITADO (Razón social: N/D, Estado: RUC no encontrado en el documento)\nSemáforo: NO_CUMPLE\nCumplimientos relevantes:\n- Acepta que en el caso de que se comprobare una violación a los compromisos, la Entidad Contratante le descalifique como oferente, NO CUMPLE, no se presenta evidencia de aceptación. (Formulario-Único-de-la-Oferta-Regimen-Especial-BYS)\n- Declara que se obliga a guardar absoluta reserva de la información confiada, NO CUMPLE, no se presenta evidencia de declaración. (Formulario-Único-de-la-Oferta-Regimen-Especial-BYS)\nBrechas detectadas y acciones:\n- Acepta que en el caso de que se comprobare una violación a los compromisos, NO CUMPLE, se debe incluir la aceptación en la oferta. (Formulario-Único-de-la-Oferta-Regimen-Especial-BYS)\n- Declara que se obliga a guardar absoluta reserva de la información, NO CUMPLE, se debe presentar la declaración correspondiente. (Formulario-Único-de-la-Oferta-Regimen-Especial-BYS)\nRiesgos del oferente: ALTO falta de cumplimiento en compromisos (N/D, N/D).\nPesos categoría: Legal 0.4, Técnica 0.4, Económica 0.2"
+      },
+      {
+        "archivo": "oferta_inconsistente",
+        "texto": "Oferta: oferta_inconsistente\nReferencia BASE — costo: N/D, plazo: N/D días\nOferente: oferta_inconsistente — costo: N/D, plazo: N/D días\nRUC N/D — NO HABILITADO (Razón social: N/D, Estado: RUC no encontrado en el documento)\nSemáforo: NO_CUMPLE\nCumplimientos relevantes:\n- Acepta que en el caso de que se comprobare una violación a los compromisos, evidencia no encontrada, doc base: FORMULARIO-UNICO-DE-LA-OFERTA-REGIMEN-ESPECIAL-BYS\n- Declara que se obliga a guardar absoluta reserva de la información, evidencia no encontrada, doc base: FORMULARIO-UNICO-DE-LA-OFERTA-REGIMEN-ESPECIAL-BYS\nBrechas detectadas y acciones:\n- Falta de información en la sección de Nómina de Accionistas y Beneficiario Final, evidencia no encontrada, ACCIÓN CONCRETA: Completar la sección de Nómina de Accionistas y Beneficiario Final, doc base: oferta_inconsistente\n- Los índices financieros no cumplen con los valores mínimos establecidos, evidencia no encontrada, ACCIÓN CONCRETA: Ajustar los índices financieros para cumplir con los valores mínimos, doc base: oferta_inconsistente\n- No se presenta la Declaración de Valor Agregado Ecuatoriano, evidencia no encontrada, ACCIÓN CONCRETA: Incluir la Declaración de Valor Agregado Ecuatoriano, doc base: oferta_inconsistente\n- Las especificaciones técnicas ofertadas no cumplen totalmente con las requeridas en el pliego, evidencia no encontrada, ACCIÓN CONCRETA: Revisar y ajustar las especificaciones técnicas, doc base: oferta_inconsistente\n- Falta documentación obligatoria en el Formulario Único de la Oferta, evidencia no encontrada, ACCIÓN CONCRETA: Completar el Formulario Único de la Oferta con la documentación obligatoria, doc base: oferta_inconsistente\nRiesgos del oferente: ALTO falta de documentación obligatoria (N/A, N/A)\nPesos categoría: Legal 0.4, Técnica 0.4, Económica 0.2"
       }
     ],
     "comparativo_texto": "La oferta de EJEMPLO DE CONTRATO - RETO 1 cumple con todos los requisitos relevantes. No se identificaron diferencias significativas en plazos o montos. | La oferta de 5_Proforma_0190373479001 cumple con todos los requisitos relevantes y está habilitada. No se presentan diferencias significativas en plazos o montos. | La oferta de EJEMPLO DE CONTRATO - RETO 1 cumple con todos los requisitos relevantes. No se encontraron diferencias significativas en plazos o montos con respecto a las expectativas. | La oferta de 5_Proforma_0190373479001 cumple con todos los requisitos establecidos, destacando su habilitación y cumplimiento de compromisos. No se presentan diferencias significativas en costo o plazo. | El cumplimiento de la oferta es deficiente, ya que no se presenta evidencia de aceptación de compromisos ni de reserva de información. No se detectan diferencias relevantes en costo o plazo. | La oferta de 44890047 cumple con los requisitos legales y técnicos, aunque presenta brechas en la documentación de requisitos mínimos. El plazo de 30 días es competitivo. | El cumplimiento más destacado es la aceptación de los compromisos establecidos. Sin embargo, la oferta no presenta un plazo "
@@ -376,6 +388,284 @@
             "notas": "OK"
           },
           "semaforo": "aprobado",
+          "pesosCategoria": {
+            "Legal": 0.4,
+            "Tecnica": 0.4,
+            "Economica": 0.2
+          }
+        }
+      },
+      {
+        "archivo": "oferta_correcta",
+        "destino": {
+          "familia": null,
+          "procedimiento": "Pliego",
+          "label": "null — Pliego"
+        },
+        "json": {
+          "secciones": {
+            "legales": [
+              "Cumple con toda la normativa general, sectorial y especial aplicable a su actividad económica, profesión, ciencia u oficio; y, que los equipos e instrumentos que se utilizarán para la ejecución, en caso de adjudicación del contrato, serán de propiedad del oferente o arrendados y contarán con todos los permisos que se requieran para su utilización."
+            ],
+            "tecnicas": [
+              "Se incluye la Nómina de Accionistas y Beneficiario Final con toda la información requerida.",
+              "Los índices financieros cumplen o superan los valores mínimos establecidos.",
+              "Se presenta la Declaración de Valor Agregado Ecuatoriano con sus respaldos."
+            ],
+            "economicas": [
+              "Considera todos los costos obligatorios que debe y deberá asumir en la ejecución contractual, especialmente aquellos relacionados con obligaciones sociales, laborales, de seguridad social, ambientales y tributarias vigentes."
+            ],
+            "otros": []
+          },
+          "procesoId": null,
+          "referencia": {
+            "costo": null,
+            "plazo_dias": null
+          },
+          "requisitos": [
+            {
+              "id": "R-001",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "Cumple con toda la normativa general, sectorial y especial aplicable a su actividad económica, profesión, ciencia u oficio; y, que los equipos e instrumentos que se utilizarán para la ejecución, en caso de adjudicación del contrato, serán de propiedad del oferente o arrendados y contarán con todos los permisos que se requieran para su utilización.",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-002",
+              "categoria": "Economica",
+              "sub": null,
+              "texto": "Considera todos los costos obligatorios que debe y deberá asumir en la ejecución contractual, especialmente aquellos relacionados con obligaciones sociales, laborales, de seguridad social, ambientales y tributarias vigentes.",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            }
+          ],
+          "oferentes": [
+            {
+              "id": "O1",
+              "nombre": "oferta_correcta",
+              "costo": null,
+              "plazo_dias": null,
+              "cumplimientos": [
+                {
+                  "reqId": "R-001",
+                  "estado": "CUMPLE",
+                  "evidencia": "Cumple con toda la normativa general, sectorial y especial."
+                },
+                {
+                  "reqId": "R-002",
+                  "estado": "CUMPLE",
+                  "evidencia": "Considera todos los costos obligatorios."
+                }
+              ],
+              "riesgos": []
+            }
+          ],
+          "riesgos": [],
+          "diferencias_clave": [],
+          "recomendaciones": [
+            "Proporcionar el RUC del oferente para validar la habilitación."
+          ],
+          "ruc_validacion": {
+            "ruc": null,
+            "nombre": null,
+            "habilitado": null,
+            "notas": "RUC no encontrado en el documento"
+          },
+          "semaforo": "aprobado",
+          "pesosCategoria": {
+            "Legal": 0.4,
+            "Tecnica": 0.4,
+            "Economica": 0.2
+          }
+        }
+      },
+      {
+        "archivo": "CHUCHUCA MERA ALEJANDRA CAROLINA",
+        "destino": {
+          "familia": null,
+          "procedimiento": null,
+          "label": "null"
+        },
+        "json": {
+          "secciones": {
+            "legales": [
+              "Acepta que en el caso de que se comprobare una violación a los compromisos"
+            ],
+            "tecnicas": [],
+            "economicas": [],
+            "otros": [
+              "Declara que se obliga a guardar absoluta reserva de la información confiada"
+            ]
+          },
+          "procesoId": null,
+          "referencia": {
+            "costo": null,
+            "plazo_dias": null
+          },
+          "requisitos": [
+            {
+              "id": "R-001",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "Acepta que en el caso de que se comprobare una violación a los compromisos",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-002",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "Declara que se obliga a guardar absoluta reserva de la información confiada",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            }
+          ],
+          "oferentes": [
+            {
+              "id": "O1",
+              "nombre": "CHUCHUCA MERA ALEJANDRA CAROLINA",
+              "costo": null,
+              "plazo_dias": null,
+              "cumplimientos": [
+                {
+                  "reqId": "R-001",
+                  "estado": "NO CUMPLE",
+                  "evidencia": "no se presenta evidencia de aceptación."
+                },
+                {
+                  "reqId": "R-002",
+                  "estado": "NO CUMPLE",
+                  "evidencia": "no se presenta evidencia de declaración."
+                }
+              ],
+              "riesgos": [
+                {
+                  "nivel": "ALTO",
+                  "clausula": null,
+                  "pagina": null,
+                  "descripcion": "falta de cumplimiento en compromisos"
+                }
+              ]
+            }
+          ],
+          "riesgos": [],
+          "diferencias_clave": [],
+          "recomendaciones": [
+            "Incluir la aceptación de compromisos en la oferta.",
+            "Presentar la declaración de reserva de información."
+          ],
+          "ruc_validacion": {
+            "ruc": null,
+            "nombre": null,
+            "habilitado": false,
+            "notas": "RUC no encontrado en el documento"
+          },
+          "semaforo": "no_cumple",
+          "pesosCategoria": {
+            "Legal": 0.4,
+            "Tecnica": 0.4,
+            "Economica": 0.2
+          }
+        }
+      },
+      {
+        "archivo": "oferta_inconsistente",
+        "destino": {
+          "familia": null,
+          "procedimiento": "Pliego",
+          "label": "null — Pliego"
+        },
+        "json": {
+          "secciones": {
+            "legales": [
+              "Acepta que en el caso de que se comprobare una violación a los compromisos"
+            ],
+            "tecnicas": [
+              "Las especificaciones técnicas ofertadas no cumplen totalmente con las requeridas en el pliego."
+            ],
+            "economicas": [
+              "Los índices financieros no cumplen con los valores mínimos establecidos."
+            ],
+            "otros": [
+              "Falta de información en la sección de Nómina de Accionistas y Beneficiario Final.",
+              "No se presenta la Declaración de Valor Agregado Ecuatoriano.",
+              "Falta documentación obligatoria en el Formulario Único de la Oferta."
+            ]
+          },
+          "procesoId": null,
+          "referencia": {
+            "costo": null,
+            "plazo_dias": null
+          },
+          "requisitos": [
+            {
+              "id": "R-001",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "Acepta que en el caso de que se comprobare una violación a los compromisos",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-002",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "Declara que se obliga a guardar absoluta reserva de la información",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            }
+          ],
+          "oferentes": [
+            {
+              "id": "O1",
+              "nombre": "oferta_inconsistente",
+              "costo": null,
+              "plazo_dias": null,
+              "cumplimientos": [
+                {
+                  "reqId": "R-001",
+                  "estado": "NO CUMPLE",
+                  "evidencia": null
+                },
+                {
+                  "reqId": "R-002",
+                  "estado": "NO CUMPLE",
+                  "evidencia": null
+                }
+              ],
+              "riesgos": [
+                {
+                  "nivel": "ALTO",
+                  "clausula": null,
+                  "pagina": null,
+                  "descripcion": "falta de documentación obligatoria"
+                }
+              ]
+            }
+          ],
+          "riesgos": [],
+          "diferencias_clave": [],
+          "recomendaciones": [
+            "Completar la sección de Nómina de Accionistas y Beneficiario Final.",
+            "Ajustar los índices financieros para cumplir con los valores mínimos.",
+            "Incluir la Declaración de Valor Agregado Ecuatoriano.",
+            "Revisar y ajustar las especificaciones técnicas.",
+            "Completar el Formulario Único de la Oferta con la documentación obligatoria."
+          ],
+          "ruc_validacion": {
+            "ruc": null,
+            "nombre": null,
+            "habilitado": false,
+            "notas": "RUC no encontrado en el documento"
+          },
+          "semaforo": "no_cumple",
           "pesosCategoria": {
             "Legal": 0.4,
             "Tecnica": 0.4,

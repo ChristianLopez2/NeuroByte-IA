@@ -1,0 +1,38 @@
+{
+  "procesoId": "CON-COT-2025-005",
+  "referencia": { "costo": 80000, "plazo_dias": 30 },
+  "requisitos": [
+    { "id": "R-001", "categoria": "Legal", "sub": "Habilitantes", "texto": "RUC vigente", "peso": 1, "clausula": "1.2", "pagina": 1 },
+    { "id": "R-002", "categoria": "Tecnica", "sub": "Experiencia", "texto": "5 proyectos similares", "peso": 1.5, "clausula": "2.1", "pagina": 5 },
+    { "id": "R-003", "categoria": "Administrativa", "sub": "Plan", "texto": "Metodología de trabajo", "peso": 1, "clausula": "3.4", "pagina": 9 }
+  ],
+  "oferentes": [
+    {
+      "id": "O1",
+      "nombre": "Consultores Épsilon",
+      "costo": 78000,
+      "plazo_dias": 28,
+      "cumplimientos": [
+        { "reqId": "R-001", "estado": "CUMPLE" },
+        { "reqId": "R-002", "estado": "CUMPLE" },
+        { "reqId": "R-003", "estado": "CUMPLE" }
+      ],
+      "riesgos": []
+    },
+    {
+      "id": "O2",
+      "nombre": "Asesorías Zeta",
+      "costo": 82000,
+      "plazo_dias": 32,
+      "cumplimientos": [
+        { "reqId": "R-001", "estado": "CUMPLE" },
+        { "reqId": "R-002", "estado": "NO CUMPLE" },
+        { "reqId": "R-003", "estado": "PARCIAL" }
+      ],
+      "riesgos": [
+        { "nivel": "ALTO", "clausula": "2.5", "pagina": 11, "descripcion": "Metodología incompleta y sin cronograma" }
+      ]
+    }
+  ],
+  "pesosCategoria": { "Legal": 0.3, "Tecnica": 0.5, "Administrativa": 0.2 }
+}

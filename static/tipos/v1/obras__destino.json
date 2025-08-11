@@ -1,0 +1,425 @@
+[
+  {
+    "secciones": {
+      "legales": [
+        "construcción solicitada por la entidad contratante en los pliegos precontractuales, y conforme a lo",
+        "la oferta, ni será objeto de evaluación por puntaje. Sin embargo, deberá encontrarse debidamente",
+        "firmada al presentarse la oferta, caso contrario la oferta será descalificada por falta de integridad de"
+      ],
+      "tecnicas": [
+        "los compromisos y obligaciones que asumirán las partes en la fase de ejecución"
+      ],
+      "economicas": [
+        "formalizarán el presente compromiso mediante la suscripción de la pertinente"
+      ],
+      "otros": []
+    },
+    "procesoId": "O-N-2025-001",
+    "referencia": {
+      "costo": null,
+      "plazo_dias": null
+    },
+    "requisitos": [
+      {
+        "id": "R-001",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "construcción solicitada por la entidad contratante en los pliegos precontractuales, y conforme a lo",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-002",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "la oferta, ni será objeto de evaluación por puntaje. Sin embargo, deberá encontrarse debidamente",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-003",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "firmada al presentarse la oferta, caso contrario la oferta será descalificada por falta de integridad de",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-004",
+        "categoria": "Tecnica",
+        "sub": null,
+        "texto": "los compromisos y obligaciones que asumirán las partes en la fase de ejecución",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-005",
+        "categoria": "Tecnica",
+        "sub": null,
+        "texto": "formalizarán el presente compromiso mediante la suscripción de la pertinente",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      }
+    ],
+    "oferentes": [
+      {
+        "id": "O1",
+        "nombre": "MURANO - IT TECNOLOGIA Y SOLUCIONES INTEGRALES S.A.",
+        "costo": 2000000000,
+        "plazo_dias": 90,
+        "cumplimientos": [
+          {
+            "reqId": "R-001",
+            "estado": "CUMPLE",
+            "evidencia": "DOC: FORMULARIO-UNICO-DE-LA-OFERTA.-COTIZACION-DE-OBRA"
+          },
+          {
+            "reqId": "R-002",
+            "estado": "CUMPLE",
+            "evidencia": "DOC: FORMULARIO-UNICO-DE-LA-OFERTA.-COTIZACION-DE-OBRA"
+          },
+          {
+            "reqId": "R-003",
+            "estado": "CUMPLE",
+            "evidencia": "DOC: FORMULARIO-UNICO-DE-LA-OFERTA.-COTIZACION-DE-OBRA"
+          },
+          {
+            "reqId": "R-004",
+            "estado": "CUMPLE",
+            "evidencia": "DOC: 3_formulario_de_compromiso_de_asociacion_o_consorcio_de_menor_cuantia4"
+          },
+          {
+            "reqId": "R-005",
+            "estado": "CUMPLE",
+            "evidencia": "DOC: 3_formulario_de_compromiso_de_asociacion_o_consorcio_de_menor_cuantia4"
+          }
+        ],
+        "riesgos": [
+          {
+            "nivel": "ALTO",
+            "clausula": null,
+            "pagina": null,
+            "descripcion": "incumplimiento grave"
+          }
+        ]
+      }
+    ],
+    "riesgos": [],
+    "diferencias_clave": [],
+    "recomendaciones": [],
+    "ruc_validacion": {
+      "ruc": "0992881364001",
+      "nombre": "MURANO - IT TECNOLOGIA Y SOLUCIONES INTEGRALES S.A.",
+      "habilitado": true,
+      "notas": null
+    },
+    "semaforo": "aprobado",
+    "pesosCategoria": {
+      "Legal": 0.4,
+      "Tecnica": 0.4,
+      "Economica": 0.2
+    }
+  },
+  {
+    "secciones": {
+      "legales": [
+        "Cumple con toda la normativa general, sectorial y especial aplicable a su actividad económica, profesión, ciencia u oficio; y, que los equipos e instrumentos que se utilizarán para la ejecución, en caso de adjudicación del contrato, serán de propiedad del oferente o arrendados y contarán con todos los permisos que se requieran para su utilización."
+      ],
+      "tecnicas": [
+        "Considera todos los costos obligatorios que debe y deberá asumir en la ejecución contractual, especialmente aquellos relacionados con obligaciones sociales, laborales, de seguridad social, ambientales y tributarias vigentes."
+      ],
+      "economicas": [],
+      "otros": []
+    },
+    "procesoId": "O-N-2025-002",
+    "referencia": {
+      "costo": 2000000000,
+      "plazo_dias": 90
+    },
+    "requisitos": [
+      {
+        "id": "R-001",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Cumple con toda la normativa general, sectorial y especial aplicable a su actividad económica, profesión, ciencia u oficio; y, que los equipos e instrumentos que se utilizarán para la ejecución, en caso de adjudicación del contrato, serán de propiedad del oferente o arrendados y contarán con todos los permisos que se requieran para su utilización.",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-002",
+        "categoria": "Economica",
+        "sub": null,
+        "texto": "Considera todos los costos obligatorios que debe y deberá asumir en la ejecución contractual, especialmente aquellos relacionados con obligaciones sociales, laborales, de seguridad social, ambientales y tributarias vigentes.",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      }
+    ],
+    "oferentes": [
+      {
+        "id": "O1",
+        "nombre": "MURANO - IT TECNOLOGIA Y SOLUCIONES INTEGRALES S.A.",
+        "costo": 2000000000,
+        "plazo_dias": 90,
+        "cumplimientos": [
+          {
+            "reqId": "R-001",
+            "estado": "CUMPLE",
+            "evidencia": "Cumple con toda la normativa general, sectorial y especial aplicable a su actividad económica."
+          },
+          {
+            "reqId": "R-002",
+            "estado": "CUMPLE",
+            "evidencia": "Considera todos los costos obligatorios que debe y deberá asumir en la ejecución contractual."
+          }
+        ],
+        "riesgos": []
+      }
+    ],
+    "riesgos": [],
+    "diferencias_clave": [],
+    "recomendaciones": [
+      "Presentar las garantías de fiel cumplimiento, buen uso del anticipo y vicios ocultos."
+    ],
+    "ruc_validacion": {
+      "ruc": "0992881364001",
+      "nombre": "MURANO - IT TECNOLOGIA Y SOLUCIONES INTEGRALES S.A.",
+      "habilitado": true,
+      "notas": "OK"
+    },
+    "semaforo": "aprobado",
+    "pesosCategoria": {
+      "Legal": 0.4,
+      "Tecnica": 0.4,
+      "Economica": 0.2
+    }
+  },
+  {
+    "secciones": {
+      "legales": [
+        "Acepta que en el caso de que se comprobare una violación a los compromisos",
+        "Declara que se obliga a guardar absoluta reserva de la información confiada"
+      ],
+      "tecnicas": [
+        "Los compromisos y obligaciones que asumirán las partes en la fase de ejecución"
+      ],
+      "economicas": [],
+      "otros": []
+    },
+    "procesoId": "O-N-2025-003",
+    "referencia": {
+      "costo": null,
+      "plazo_dias": null
+    },
+    "requisitos": [
+      {
+        "id": "R-001",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Acepta que en el caso de que se comprobare una violación a los compromisos",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-002",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Declara que se obliga a guardar absoluta reserva de la información confiada",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      }
+    ],
+    "oferentes": [
+      {
+        "id": "O1",
+        "nombre": "MURANO - IT TECNOLOGIA Y SOLUCIONES INTEGRALES S.A.",
+        "costo": 2000000000,
+        "plazo_dias": 90,
+        "cumplimientos": [
+          {
+            "reqId": "R-001",
+            "estado": "CUMPLE",
+            "evidencia": null
+          },
+          {
+            "reqId": "R-002",
+            "estado": "CUMPLE",
+            "evidencia": null
+          }
+        ],
+        "riesgos": []
+      }
+    ],
+    "riesgos": [],
+    "diferencias_clave": [],
+    "recomendaciones": [],
+    "ruc_validacion": {
+      "ruc": "0992881364001",
+      "nombre": "MURANO - IT TECNOLOGIA Y SOLUCIONES INTEGRALES S.A.",
+      "habilitado": true,
+      "notas": "OK"
+    },
+    "semaforo": "aprobado",
+    "pesosCategoria": {
+      "Legal": 0.4,
+      "Tecnica": 0.4,
+      "Economica": 0.2
+    }
+  },
+  {
+    "secciones": {
+      "legales": [
+        "Acepta que en el caso de que se comprobare una violación a los compromisos",
+        "Declara que se obliga a guardar absoluta reserva de la información confiada"
+      ],
+      "tecnicas": [
+        "Los compromisos y obligaciones que asumirán las partes en la fase de ejecución"
+      ],
+      "economicas": [],
+      "otros": []
+    },
+    "procesoId": "O-N-2025-004",
+    "referencia": {
+      "costo": null,
+      "plazo_dias": null
+    },
+    "requisitos": [
+      {
+        "id": "R-001",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Acepta que en el caso de que se comprobare una violación a los compromisos",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-002",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Declara que se obliga a guardar absoluta reserva de la información confiada",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      }
+    ],
+    "oferentes": [
+      {
+        "id": "O1",
+        "nombre": "MURANO - IT TECNOLOGIA Y SOLUCIONES INTEGRALES S.A.",
+        "costo": 2000000000,
+        "plazo_dias": 90,
+        "cumplimientos": [
+          {
+            "reqId": "R-001",
+            "estado": "CUMPLE",
+            "evidencia": null
+          },
+          {
+            "reqId": "R-002",
+            "estado": "CUMPLE",
+            "evidencia": null
+          }
+        ],
+        "riesgos": []
+      }
+    ],
+    "riesgos": [],
+    "diferencias_clave": [],
+    "recomendaciones": [],
+    "ruc_validacion": {
+      "ruc": "0992881364001",
+      "nombre": "MURANO - IT TECNOLOGIA Y SOLUCIONES INTEGRALES S.A.",
+      "habilitado": true,
+      "notas": "OK"
+    },
+    "semaforo": "aprobado",
+    "pesosCategoria": {
+      "Legal": 0.4,
+      "Tecnica": 0.4,
+      "Economica": 0.2
+    }
+  },
+  {
+    "secciones": {
+      "legales": [
+        "Acepta que en el caso de que se comprobare una violación a los compromisos",
+        "Declara que se obliga a guardar absoluta reserva de la información confiada"
+      ],
+      "tecnicas": [
+        "Los compromisos y obligaciones que asumirán las partes en la fase de ejecución"
+      ],
+      "economicas": [],
+      "otros": []
+    },
+    "procesoId": "O-N-2025-005",
+    "referencia": {
+      "costo": null,
+      "plazo_dias": null
+    },
+    "requisitos": [
+      {
+        "id": "R-001",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Acepta que en el caso de que se comprobare una violación a los compromisos",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-002",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Declara que se obliga a guardar absoluta reserva de la información confiada",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      }
+    ],
+    "oferentes": [
+      {
+        "id": "O1",
+        "nombre": "MURANO - IT TECNOLOGIA Y SOLUCIONES INTEGRALES S.A.",
+        "costo": 2000000000,
+        "plazo_dias": 90,
+        "cumplimientos": [
+          {
+            "reqId": "R-001",
+            "estado": "CUMPLE",
+            "evidencia": null
+          },
+          {
+            "reqId": "R-002",
+            "estado": "CUMPLE",
+            "evidencia": null
+          }
+        ],
+        "riesgos": []
+      }
+    ],
+    "riesgos": [],
+    "diferencias_clave": [],
+    "recomendaciones": [],
+    "ruc_validacion": {
+      "ruc": "0992881364001",
+      "nombre": "MURANO - IT TECNOLOGIA Y SOLUCIONES INTEGRALES S.A.",
+      "habilitado": true,
+      "notas": "OK"
+    },
+    "semaforo": "aprobado",
+    "pesosCategoria": {
+      "Legal": 0.4,
+      "Tecnica": 0.4,
+      "Economica": 0.2
+    }
+  }
+]

@@ -147,18 +147,31 @@ const TIPOS_FALLBACK = [
   { id:'regimen-pliego', label:'Régimen Especial — Pliego', json:'/static/tipos/regimen_pliego.json' }
 ];
 
+// Reemplaza TODO el bloque TIPOS_FALLBACK + cargarTipos() por:
 async function cargarTipos(){
-  try{
-    const r = await fetch('/api/tipos-licitacion');
-    if(!r.ok) throw new Error('api tipos 404');
-    const tipos = await r.json();
-    if(!Array.isArray(tipos) || tipos.length===0) throw new Error('api tipos vacio');
-    return tipos;
-  }catch(e){
-    console.warn('Usando TIPOS_FALLBACK por error/cero resultados:', e?.message||e);
-    return TIPOS_FALLBACK;
-  }
+  // pídelo al backend (ver endpoint abajo). Devuelve [{id:"bienes_y_servicios_cotizacion.json", label:"Bienes y Servicios — Cotización"}]
+  const r = await fetch('/api/tipos-licitacion', { cache: 'no-store' });
+  if (!r.ok) throw new Error('No pude listar /static/tipos');
+  const arr = await r.json();
+  // Insertamos "auto" al inicio
+  arr.unshift({ id: 'auto', label: 'Detectar automáticamente' });
+  return arr;
 }
+
+// // Poblar selector de tipos
+// (async()=>{
+//   const tipos = await cargarTipos();
+//   const sel = document.querySelector('#tipoSelect');
+//   sel.innerHTML = '';
+//   tipos.forEach(t=>{
+//     const opt = document.createElement('option');
+//     opt.value = t.id;          // <-- value ES el nombre del archivo .json (o 'auto')
+//     opt.textContent = t.label; // <-- texto visible
+//     sel.appendChild(opt);
+//   });
+//   sel.value = 'auto';
+// })();
+
 
 function mostrarMensaje(texto) {
   let contenedor = document.getElementById('contenedor-datos');
@@ -174,14 +187,27 @@ function mostrarMensaje(texto) {
 
 
 function renderizarDatos(raw) {
-  // Oculta mensaje si estaba visible
   const cont = document.getElementById('contenedor-datos');
   if (cont) cont.style.display = 'none';
 
-  DATA = normalizeComparativo(raw);
+  DATA = normalizeComparativo(raw);  // <- ya deduplica por RUC
+
   hydrateFilters();
   onFiltersChange();
 }
+
+(async()=>{
+  const tipos = await cargarTipos(); // debe devolver [{id:"obras_cotizacion.json", label:"Obras — Cotización"}, ...]
+  const sel = document.querySelector('#tipoSelect');
+  sel.innerHTML='';
+  tipos.forEach(t=>{
+    const opt=document.createElement('option');
+    opt.value = t.id;          // ej: "obras_cotizacion.json"
+    opt.textContent = t.label; // texto visible
+    sel.appendChild(opt);
+  });
+  sel.value='auto';
+})();
 
 
 // ===================== Parámetros de impacto =====================
@@ -194,12 +220,49 @@ const $ = s=>document.querySelector(s);
 const fmtNum = n => (n==null||Number.isNaN(n)) ? '—' : new Intl.NumberFormat('es-EC').format(Math.round(n));
 
 // ===================== Normalizador ÚNICO =====================
-function normalizeComparativo(j){
-  // si ya viene normalizado
-  if(j && j.requisitos && j.oferentes) return j;
+function normalizeComparativo(input){
+  // ARCHIVO ES UN ARRAY DE PROCESOS
+  if (Array.isArray(input)) {
+    // toma requisitos y referencia del último proceso que tenga datos
+    const lastWithReqs = [...input].reverse().find(p => p?.requisitos?.length);
+    const requisitos = lastWithReqs?.requisitos || [];
+    const referencia = lastWithReqs?.referencia || {};
+    const pesosCategoria = lastWithReqs?.pesosCategoria || { Legal:0.4, Tecnica:0.4, Administrativa:0.2 };
 
-  const out={ procesoId:j?.procesoId||'EXT', referencia:j?.referencia||{}, requisitos:[], oferentes:[], pesosCategoria:{Legal:0.34,Tecnica:0.33,Administrativa:0.33} };
-  const rx=j?.requisitos_x_oferentes||[];
+    // fusiona todos los oferentes de todos los procesos
+    const allOferentes = [];
+    input.forEach(p => {
+      const rucRaiz = p?.ruc_validacion?.ruc || null;
+      (p?.oferentes || []).forEach(o => {
+        allOferentes.push({
+          ...o,
+          ruc: o.ruc || rucRaiz || null  // propaga ruc si no viene en el oferente
+        });
+      });
+    });
+
+    return {
+      procesoId: lastWithReqs?.procesoId || 'EXT',
+      referencia,
+      requisitos,
+      oferentes: dedupeOferentesByRuc(allOferentes),
+      pesosCategoria
+    };
+  }
+
+  // OBJETO ÚNICO YA NORMALIZADO
+  if (input && input.requisitos && input.oferentes) {
+    // si hay ruc a nivel raíz y hay un único oferente sin ruc, propágalo
+    if (input.ruc_validacion?.ruc && input.oferentes.length === 1 && !input.oferentes[0].ruc) {
+      input.oferentes[0].ruc = input.ruc_validacion.ruc;
+    }
+    input.oferentes = dedupeOferentesByRuc(input.oferentes);
+    return input;
+  }
+
+  // TRANSFORMACIÓN DESDE FORMATO "requisitos_x_oferentes" (si llegara)
+  const out={ procesoId:input?.procesoId||'EXT', referencia:input?.referencia||{}, requisitos:[], oferentes:[], pesosCategoria:{Legal:0.34,Tecnica:0.33,Administrativa:0.33} };
+  const rx=input?.requisitos_x_oferentes||[];
   if(rx.length){
     const cols = Object.keys(rx[0]).filter(k=>k.toLowerCase()!=='requisito');
     const oferentes = cols.map((c,i)=>({id:`O${i+1}`,nombre:c,cumplimientos:[]}));
@@ -212,9 +275,9 @@ function normalizeComparativo(j){
         o.cumplimientos.push({reqId,estado});
       });
     });
-    out.oferentes=oferentes;
+    out.oferentes = dedupeOferentesByRuc(oferentes);
   }
-  const tr=j?.top_clausulas_riesgosas||[];
+  const tr=input?.top_clausulas_riesgosas||[];
   if(tr.length){
     const map={alto:'ALTO',medio:'MEDIO',bajo:'BAJO'};
     const riesgos=tr.map(x=>({nivel:map[String(x.riesgo||'').toLowerCase()]||'MEDIO',clausula:x.clausula||'',pagina:x.pagina||null,descripcion:x.descripcion||''}));
@@ -223,6 +286,7 @@ function normalizeComparativo(j){
   }
   return out;
 }
+
 
 // ===================== Cargas =====================
 // Reemplaza cargarDesde por esta versión
@@ -245,21 +309,32 @@ async function cargarDesde(url, labelForMsg){
   return true;
 }
 
-// Ajusta cargarTipoSeleccionado para pasar la etiqueta al mensaje
 async function cargarTipoSeleccionado(){
-  const sel = document.querySelector('#tipoSelect').value;
-  if (sel === 'auto') {
-    try { 
-      const ok = await cargarDesde('/static/tipos/bienes_cotizacion.json','Detección automática');
-      if (!ok) { DATA = demoData(); hydrateFilters(); onFiltersChange(); }
-    } catch { DATA = demoData(); hydrateFilters(); onFiltersChange(); }
+  const sel = document.querySelector('#tipoSelect');
+  const value = (sel?.value || '').trim();
+
+  if (!value) { 
+    mostrarMensaje('Selecciona un tipo para cargar datos.'); 
+    return; 
+  }
+
+  if (value === 'auto') {
+    let tipos = [];
+    try { tipos = await cargarTipos(); } catch {}
+    const firstReal = tipos.find(t => t.id && t.id !== 'auto');
+    if (!firstReal) { DATA = demoData(); hydrateFilters(); onFiltersChange(); return; }
+    const url = firstReal.id.endsWith('.json') && !firstReal.id.startsWith('/static/')
+      ? `/static/tipos/${firstReal.id}`
+      : firstReal.id;
+    await cargarDesde(url, firstReal.label || firstReal.id);
     return;
   }
-  const opt   = document.querySelector('#tipoSelect').selectedOptions[0];
-  const url   = opt?.dataset?.json;
-  const label = opt?.textContent || 'tipo seleccionado';
-  if (!url) { mostrarMensaje(`No hay procesos activos para: ${label}`); return; }
-  await cargarDesde(url, label); // <- ya no usamos alert
+
+  const url = value.endsWith('.json') && !value.startsWith('/static/')
+    ? `/static/tipos/${value}`
+    : value;
+
+  await cargarDesde(url, value);
 }
 
 // Asegura que mostrarMensaje tenga un contenedor real
@@ -394,12 +469,37 @@ let getOferentes=()=>[], getCategorias=()=>[], getRiesgo=()=>'ALL';
 function demoData(){ return { procesoId:'LIC-2025-001', referencia:{costo:100000,plazo_dias:60}, requisitos:[{id:'R-001',categoria:'Legal',sub:'Habilitantes',texto:'RUC vigente',peso:1.0,clausula:'2.1',pagina:5},{id:'R-002',categoria:'Tecnica',sub:'Experiencia',texto:'3 contratos similares',peso:1.2,clausula:'3.4',pagina:12},{id:'R-003',categoria:'Administrativa',sub:'Garantías',texto:'Garantía de seriedad de oferta',peso:1.0,clausula:'4.2',pagina:18}], oferentes:[{id:'O1',nombre:'Proveedor A',costo:98000,plazo_dias:55,cumplimientos:[{reqId:'R-001',estado:'CUMPLE',evidencia:'Certificado vigente'},{reqId:'R-002',estado:'PARCIAL',evidencia:'2 contratos'},{reqId:'R-003',estado:'NO CUMPLE'}], riesgos:[{nivel:'ALTO',clausula:'5.2',pagina:23,descripcion:'No acepta multas por mora'},{nivel:'MEDIO',clausula:'3.4',pagina:12,descripcion:'Experiencia insuficiente'}]},{id:'O2',nombre:'Proveedor B',costo:104000,plazo_dias:60,cumplimientos:[{reqId:'R-001',estado:'CUMPLE',evidencia:'Certificado vigente'},{reqId:'R-002',estado:'CUMPLE',evidencia:'3 contratos similares'},{reqId:'R-003',estado:'CUMPLE',evidencia:'Garantía bancaria'}], riesgos:[]}], pesosCategoria:{Legal:0.4,Tecnica:0.4,Administrativa:0.2} }; }
 
 // ===================== Arranque UI =====================
-async function hydrateFilters(){ const ofItems=(DATA.oferentes||[]).map(o=>({label:o.nombre,value:o.id,checked:true})); getOferentes=makeMultiDroplist($('#mdOferentes'),ofItems,$('#mdOferentesLabel'),'Oferentes: Ninguno'); const cats=Array.from(new Set((DATA.requisitos||[]).map(r=>r.categoria||'General'))); const catItems=cats.map(c=>({label:c,value:c,checked:true})); getCategorias=makeMultiDroplist($('#mdCategorias'),catItems,$('#mdCategoriasLabel'),'Categorías: Ninguna'); const riskItems=[{label:'Todos',value:'ALL'},{label:'Alto',value:'ALTO'},{label:'Medio',value:'MEDIO'},{label:'Bajo',value:'BAJO'}]; getRiesgo=makeSingleDroplist($('#mdRiesgo'),riskItems,$('#mdRiesgoLabel'),'Riesgo: Todos'); }
+async function hydrateFilters(){
+  // Oferentes
+  const ofItems = (DATA.oferentes||[]).map(o=>({ label:o.nombre, value:o.id, checked:true }));
+  getOferentes = makeMultiDroplist($('#mdOferentes'), ofItems, $('#mdOferentesLabel'), 'Oferentes: Ninguno');
+
+  // Categorías
+  const cats = Array.from(new Set((DATA.requisitos||[]).map(r=>r.categoria||'General')));
+  const catItems = cats.map(c=>({ label:c, value:c, checked:true }));
+  getCategorias = makeMultiDroplist($('#mdCategorias'), catItems, $('#mdCategoriasLabel'), 'Categorías: Ninguna');
+
+  // Riesgo: detecta niveles presentes en el JSON
+  const setR = new Set();
+  (DATA.oferentes||[]).forEach(o => (o.riesgos||[]).forEach(r => {
+    const n = (r.nivel||'').toString().toUpperCase().trim();
+    if (n) setR.add(n);
+  }));
+  const nivelesOrden = ['ALTO','MEDIO','BAJO'];
+  const niveles = nivelesOrden.filter(n => setR.has(n));
+  const riskItems = [{ label:'Todos', value:'ALL' }].concat(
+    niveles.map(n => ({ label: n.charAt(0) + n.slice(1).toLowerCase(), value: n }))
+  );
+  getRiesgo = makeSingleDroplist($('#mdRiesgo'), riskItems, $('#mdRiesgoLabel'), 'Riesgo: Todos');
+}
 
 // Botones
-$('#btnDemo').addEventListener('click',()=>{ DATA=demoData(); hydrateFilters(); onFiltersChange(); });
-//$('#btnStatic').addEventListener('click',async()=>{ try{ await cargarDesde('/static/comparativo.json'); }catch(e){ alert('No se pudo leer /static/comparativo.json'); } });
-$('#btnCargarTipo').addEventListener('click',cargarTipoSeleccionado);
+// //$('#btnDemo').addEventListener('click',()=>{ DATA=demoData(); hydrateFilters(); onFiltersChange(); });
+// $('#btnDemo').addEventListener('click',cargarTipoSeleccionado());
+// //$('#btnStatic').addEventListener('click',async()=>{ try{ await cargarDesde('/static/comparativo.json'); }catch(e){ alert('No se pudo leer /static/comparativo.json'); } });
+// $('#btnCargarTipo').addEventListener('click',cargarTipoSeleccionado());
+document.getElementById('btnCargarTipo').addEventListener('click', cargarTipoSeleccionado);
+document.getElementById('btnDemo').addEventListener('click', cargarTipoSeleccionado);
 
 // Poblar selector de tipos
 (async()=>{
@@ -411,8 +511,8 @@ $('#btnCargarTipo').addEventListener('click',cargarTipoSeleccionado);
 
 // Inicio: intenta cargar comparativo.json, si falla cae a demo
 document.addEventListener('DOMContentLoaded', async()=>{
-  try{ await cargarDesde('/static/tipos/bienes_cotizacion.json'); }
-  catch{ DATA=demoData(); hydrateFilters(); onFiltersChange(); }
+  try { await cargarTipoSeleccionado(); }
+  catch { DATA = demoData(); hydrateFilters(); onFiltersChange(); }
 });
 
 })();
@@ -585,6 +685,29 @@ function renderBarras(){
   });
   chartBarras=new Chart($('#barras'),{type:'bar',data:{labels:keys,datasets},options:{scales:{y:{beginAtZero:true,max:100}}}});
 }
+
+function normName(s){
+  return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+           .replace(/\s+/g,' ').trim().toLowerCase();
+}
+function normRuc(r){
+  const d = (r||'').toString().replace(/\D+/g,'');
+  return d || null;
+}
+
+// Último registro gana. Clave = RUC; si no hay RUC, usa nombre normalizado.
+function dedupeOferentesByRuc(list){
+  const map = new Map(); // key -> oferente (último visto)
+  list.forEach((o, idx) => {
+    const key = normRuc(o.ruc) || `name:${normName(o.nombre||'')}`;
+    map.set(key, { ...o, _lastIdx: idx });
+  });
+  const uniques = Array.from(map.values())
+    .sort((a,b)=>a._lastIdx - b._lastIdx)
+    .map((o,i)=>({ ...o, id:`O${i+1}` })); // renumera ids
+  return uniques;
+}
+
 </script>
 
 </body>

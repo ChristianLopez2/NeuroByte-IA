@@ -1,0 +1,509 @@
+[
+  {
+    "secciones": {
+      "legales": [],
+      "tecnicas": [],
+      "economicas": [],
+      "otros": []
+    },
+    "procesoId": "N-P-2025-001",
+    "referencia": {
+      "costo": null,
+      "plazo_dias": null
+    },
+    "requisitos": [
+      {
+        "id": "R-001",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Para iniciar con la información sobre los “Requisitos mínimos”, se debe pulsar el botón",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-002",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "cuales se deben llenar de acuerdo a las necesidades de la entidad contratante y en",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-003",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "el “Formulario de la Oferta” o “Formulario de compromiso”, la debe incluir en el",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      }
+    ],
+    "oferentes": [
+      {
+        "id": "O1",
+        "nombre": "oferta_inconsistente",
+        "costo": null,
+        "plazo_dias": null,
+        "cumplimientos": [
+          {
+            "reqId": "R-001",
+            "estado": "NO CUMPLE",
+            "evidencia": null
+          },
+          {
+            "reqId": "R-002",
+            "estado": "NO CUMPLE",
+            "evidencia": null
+          },
+          {
+            "reqId": "R-003",
+            "estado": "NO CUMPLE",
+            "evidencia": null
+          }
+        ],
+        "riesgos": []
+      }
+    ],
+    "riesgos": [
+      {
+        "tipo": "legal",
+        "detalle": "falta de documentación obligatoria",
+        "critico": true
+      }
+    ],
+    "diferencias_clave": [],
+    "recomendaciones": [
+      "Completar la sección de Nómina de Accionistas y Beneficiario Final.",
+      "Ajustar los índices financieros para cumplir con los valores mínimos.",
+      "Incluir la Declaración de Valor Agregado Ecuatoriano.",
+      "Revisar y ajustar las especificaciones técnicas.",
+      "Completar el Formulario Único de la Oferta con la documentación obligatoria."
+    ],
+    "ruc_validacion": {
+      "ruc": null,
+      "nombre": null,
+      "habilitado": false,
+      "notas": "RUC no encontrado en el documento"
+    },
+    "semaforo": "no_cumple",
+    "pesosCategoria": {
+      "Legal": 0.4,
+      "Tecnica": 0.4,
+      "Economica": 0.2
+    }
+  },
+  {
+    "secciones": {
+      "legales": [
+        "Cumple con toda la normativa general, sectorial y especial aplicable a su actividad económica, profesión, ciencia u oficio; y, que los equipos e instrumentos que se utilizarán para la ejecución, en caso de adjudicación del contrato, serán de propiedad del oferente o arrendados y contarán con todos los permisos que se requieran para su utilización."
+      ],
+      "tecnicas": [
+        "Se incluye la Nómina de Accionistas y Beneficiario Final con toda la información requerida.",
+        "Los índices financieros cumplen o superan los valores mínimos establecidos.",
+        "Se presenta la Declaración de Valor Agregado Ecuatoriano con sus respaldos."
+      ],
+      "economicas": [
+        "Considera todos los costos obligatorios que debe y deberá asumir en la ejecución contractual, especialmente aquellos relacionados con obligaciones sociales, laborales, de seguridad social, ambientales y tributarias vigentes."
+      ],
+      "otros": []
+    },
+    "procesoId": "N-P-2025-002",
+    "referencia": {
+      "costo": null,
+      "plazo_dias": null
+    },
+    "requisitos": [
+      {
+        "id": "R-001",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Cumple con toda la normativa general, sectorial y especial aplicable a su actividad económica, profesión, ciencia u oficio; y, que los equipos e instrumentos que se utilizarán para la ejecución, en caso de adjudicación del contrato, serán de propiedad del oferente o arrendados y contarán con todos los permisos que se requieran para su utilización.",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-002",
+        "categoria": "Economica",
+        "sub": null,
+        "texto": "Considera todos los costos obligatorios que debe y deberá asumir en la ejecución contractual, especialmente aquellos relacionados con obligaciones sociales, laborales, de seguridad social, ambientales y tributarias vigentes.",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      }
+    ],
+    "oferentes": [
+      {
+        "id": "O1",
+        "nombre": "oferta_correcta",
+        "costo": null,
+        "plazo_dias": null,
+        "cumplimientos": [
+          {
+            "reqId": "R-001",
+            "estado": "CUMPLE",
+            "evidencia": "Cumple con toda la normativa general, sectorial y especial."
+          },
+          {
+            "reqId": "R-002",
+            "estado": "CUMPLE",
+            "evidencia": "Considera todos los costos obligatorios."
+          }
+        ],
+        "riesgos": []
+      }
+    ],
+    "riesgos": [],
+    "diferencias_clave": [],
+    "recomendaciones": [
+      "Proporcionar el RUC del oferente para validar la habilitación."
+    ],
+    "ruc_validacion": {
+      "ruc": null,
+      "nombre": null,
+      "habilitado": null,
+      "notas": "RUC no encontrado en el documento"
+    },
+    "semaforo": "aprobado",
+    "pesosCategoria": {
+      "Legal": 0.4,
+      "Tecnica": 0.4,
+      "Economica": 0.2
+    }
+  },
+  {
+    "secciones": {
+      "legales": [
+        "Cumple con toda la normativa general, sectorial y especial aplicable a su actividad económica, profesión, ciencia u oficio; y, que los equipos e instrumentos que se utilizarán para la ejecución, en caso de adjudicación del contrato, serán de propiedad del oferente o arrendados y contarán con todos los permisos que se requieran para su utilización."
+      ],
+      "tecnicas": [
+        "Se incluye la Nómina de Accionistas y Beneficiario Final con toda la información requerida.",
+        "Los índices financieros cumplen o superan los valores mínimos establecidos.",
+        "Se presenta la Declaración de Valor Agregado Ecuatoriano con sus respaldos."
+      ],
+      "economicas": [
+        "Considera todos los costos obligatorios que debe y deberá asumir en la ejecución contractual, especialmente aquellos relacionados con obligaciones sociales, laborales, de seguridad social, ambientales y tributarias vigentes."
+      ],
+      "otros": []
+    },
+    "procesoId": "GEN-P-2025-001",
+    "referencia": {
+      "costo": null,
+      "plazo_dias": null
+    },
+    "requisitos": [
+      {
+        "id": "R-001",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Cumple con toda la normativa general, sectorial y especial aplicable a su actividad económica, profesión, ciencia u oficio; y, que los equipos e instrumentos que se utilizarán para la ejecución, en caso de adjudicación del contrato, serán de propiedad del oferente o arrendados y contarán con todos los permisos que se requieran para su utilización.",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-002",
+        "categoria": "Economica",
+        "sub": null,
+        "texto": "Considera todos los costos obligatorios que debe y deberá asumir en la ejecución contractual, especialmente aquellos relacionados con obligaciones sociales, laborales, de seguridad social, ambientales y tributarias vigentes.",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      }
+    ],
+    "oferentes": [
+      {
+        "id": "O1",
+        "nombre": "oferta_correcta",
+        "costo": null,
+        "plazo_dias": null,
+        "cumplimientos": [
+          {
+            "reqId": "R-001",
+            "estado": "CUMPLE",
+            "evidencia": "Cumple con toda la normativa general, sectorial y especial aplicable a su actividad económica."
+          },
+          {
+            "reqId": "R-002",
+            "estado": "CUMPLE",
+            "evidencia": "Considera todos los costos obligatorios que debe y deberá asumir."
+          }
+        ],
+        "riesgos": []
+      }
+    ],
+    "riesgos": [],
+    "diferencias_clave": [],
+    "recomendaciones": [
+      "Incluir costos y plazos en futuras ofertas para una evaluación más completa."
+    ],
+    "ruc_validacion": {
+      "ruc": null,
+      "nombre": null,
+      "habilitado": null,
+      "notas": "RUC no encontrado en el documento"
+    },
+    "semaforo": "aprobado",
+    "pesosCategoria": {
+      "Legal": 0.4,
+      "Tecnica": 0.4,
+      "Economica": 0.2
+    }
+  },
+  {
+    "secciones": {
+      "legales": [
+        "Acepta que en el caso de que se comprobare una violación a los compromisos, la Entidad Contratante le descalifique como oferente."
+      ],
+      "tecnicas": [
+        "Se incluye la Nómina de Accionistas y Beneficiario Final con toda la información requerida.",
+        "Los índices financieros cumplen o superan los valores mínimos establecidos.",
+        "Se presenta la Declaración de Valor Agregado Ecuatoriano con sus respaldos."
+      ],
+      "economicas": [],
+      "otros": [
+        "Declara que se obliga a guardar absoluta reserva de la información confiada."
+      ]
+    },
+    "procesoId": "N-P-2025-003",
+    "referencia": {
+      "costo": null,
+      "plazo_dias": null
+    },
+    "requisitos": [
+      {
+        "id": "R-001",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Acepta que en el caso de que se comprobare una violación a los compromisos",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-002",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Declara que se obliga a guardar absoluta reserva de la información confiada",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      }
+    ],
+    "oferentes": [
+      {
+        "id": "O1",
+        "nombre": "oferta_correcta",
+        "costo": null,
+        "plazo_dias": null,
+        "cumplimientos": [
+          {
+            "reqId": "R-001",
+            "estado": "CUMPLE",
+            "evidencia": "cumple"
+          },
+          {
+            "reqId": "R-002",
+            "estado": "CUMPLE",
+            "evidencia": "cumple"
+          }
+        ],
+        "riesgos": []
+      }
+    ],
+    "riesgos": [],
+    "diferencias_clave": [],
+    "recomendaciones": [],
+    "ruc_validacion": {
+      "ruc": null,
+      "nombre": null,
+      "habilitado": false,
+      "notas": "RUC no encontrado en el documento"
+    },
+    "semaforo": "aprobado",
+    "pesosCategoria": {
+      "Legal": 0.4,
+      "Tecnica": 0.4,
+      "Economica": 0.2
+    }
+  },
+  {
+    "secciones": {
+      "legales": [
+        "Acepta que en el caso de que se comprobare una violación a los compromisos, la Entidad Contratante le descalifique como oferente, o dé por terminado en forma inmediata el contrato."
+      ],
+      "tecnicas": [
+        "Se incluye la Nómina de Accionistas y Beneficiario Final con toda la información requerida.",
+        "Los índices financieros cumplen o superan los valores mínimos establecidos.",
+        "Se presenta la Declaración de Valor Agregado Ecuatoriano con sus respaldos."
+      ],
+      "economicas": [],
+      "otros": [
+        "Declara que se obliga a guardar absoluta reserva de la información confiada."
+      ]
+    },
+    "procesoId": "N-P-2025-004",
+    "referencia": {
+      "costo": null,
+      "plazo_dias": null
+    },
+    "requisitos": [
+      {
+        "id": "R-001",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Acepta que en el caso de que se comprobare una violación a los compromisos",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-002",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Declara que se obliga a guardar absoluta reserva de la información confiada.",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      }
+    ],
+    "oferentes": [
+      {
+        "id": "O1",
+        "nombre": "oferta_correcta",
+        "costo": null,
+        "plazo_dias": null,
+        "cumplimientos": [
+          {
+            "reqId": "R-001",
+            "estado": "CUMPLE",
+            "evidencia": "oferta alineada al pliego"
+          },
+          {
+            "reqId": "R-002",
+            "estado": "CUMPLE",
+            "evidencia": "oferta alineada al pliego"
+          }
+        ],
+        "riesgos": []
+      }
+    ],
+    "riesgos": [
+      {
+        "tipo": "legal",
+        "detalle": "RUC no encontrado en el documento",
+        "critico": true
+      }
+    ],
+    "diferencias_clave": [],
+    "recomendaciones": [
+      "Proveer el RUC y su validación."
+    ],
+    "ruc_validacion": {
+      "ruc": null,
+      "nombre": null,
+      "habilitado": false,
+      "notas": "RUC no encontrado en el documento"
+    },
+    "semaforo": "aprobado",
+    "pesosCategoria": {
+      "Legal": 0.4,
+      "Tecnica": 0.4,
+      "Economica": 0.2
+    }
+  },
+  {
+    "secciones": {
+      "legales": [
+        "Acepta que en el caso de que se comprobare una violación a los compromisos"
+      ],
+      "tecnicas": [
+        "Las especificaciones técnicas ofertadas no cumplen totalmente con las requeridas en el pliego."
+      ],
+      "economicas": [
+        "Los índices financieros no cumplen con los valores mínimos establecidos."
+      ],
+      "otros": [
+        "Falta de información en la sección de Nómina de Accionistas y Beneficiario Final.",
+        "No se presenta la Declaración de Valor Agregado Ecuatoriano.",
+        "Falta documentación obligatoria en el Formulario Único de la Oferta."
+      ]
+    },
+    "procesoId": "N-P-2025-005",
+    "referencia": {
+      "costo": null,
+      "plazo_dias": null
+    },
+    "requisitos": [
+      {
+        "id": "R-001",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Acepta que en el caso de que se comprobare una violación a los compromisos",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-002",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Declara que se obliga a guardar absoluta reserva de la información",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      }
+    ],
+    "oferentes": [
+      {
+        "id": "O1",
+        "nombre": "oferta_inconsistente",
+        "costo": null,
+        "plazo_dias": null,
+        "cumplimientos": [
+          {
+            "reqId": "R-001",
+            "estado": "NO CUMPLE",
+            "evidencia": null
+          },
+          {
+            "reqId": "R-002",
+            "estado": "NO CUMPLE",
+            "evidencia": null
+          }
+        ],
+        "riesgos": [
+          {
+            "nivel": "ALTO",
+            "clausula": null,
+            "pagina": null,
+            "descripcion": "falta de documentación obligatoria"
+          }
+        ]
+      }
+    ],
+    "riesgos": [],
+    "diferencias_clave": [],
+    "recomendaciones": [
+      "Completar la sección de Nómina de Accionistas y Beneficiario Final.",
+      "Ajustar los índices financieros para cumplir con los valores mínimos.",
+      "Incluir la Declaración de Valor Agregado Ecuatoriano.",
+      "Revisar y ajustar las especificaciones técnicas.",
+      "Completar el Formulario Único de la Oferta con la documentación obligatoria."
+    ],
+    "ruc_validacion": {
+      "ruc": null,
+      "nombre": null,
+      "habilitado": false,
+      "notas": "RUC no encontrado en el documento"
+    },
+    "semaforo": "no_cumple",
+    "pesosCategoria": {
+      "Legal": 0.4,
+      "Tecnica": 0.4,
+      "Economica": 0.2
+    }
+  }
+]
