@@ -71,6 +71,9 @@ except Exception:
 import yaml
 templates = Jinja2Templates(directory="templates")
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # =========================
 # Settings
 # =========================
@@ -82,7 +85,7 @@ class Settings:
     BASE_COLLECTION = "licitaciones_base"
     UPLOADS_COLLECTION = "licitaciones_uploads"
 
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    OPENAI_API_KEY = os.getenv("API_KEY")
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
     CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-4o-mini")
 

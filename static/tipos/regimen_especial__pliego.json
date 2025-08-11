@@ -80,5 +80,70 @@
       "Tecnica": 0.4,
       "Economica": 0.2
     }
+  },
+  {
+    "secciones": {
+      "legales": [
+        "Acepta que en el caso de que se comprobare una violación a los compromisos establecidos en el presente formulario, la Entidad Contratante le descalifique como oferente, o dé por terminado en forma inmediata el contrato, observando el debido proceso, para lo cual se allana a responder por los daños y perjuicios que tales violaciones hayan ocasionado."
+      ],
+      "tecnicas": [
+        "Se incluye la Nómina de Accionistas y Beneficiario Final con toda la información requerida.",
+        "Las especificaciones técnicas ofertadas cumplen al 100% con las requeridas en el pliego."
+      ],
+      "economicas": [
+        "Los índices financieros cumplen o superan los valores mínimos establecidos.",
+        "Se presenta la Declaración de Valor Agregado Ecuatoriano con sus respaldos."
+      ],
+      "otros": []
+    },
+    "procesoId": "RE-P-2025-002",
+    "referencia": {
+      "costo": null,
+      "plazo_dias": null
+    },
+    "requisitos": [
+      {
+        "id": "R-001",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Acepta que en el caso de que se comprobare una violación a los compromisos establecidos en el presente formulario, la Entidad Contratante le descalifique como oferente, o dé por terminado en forma inmediata el contrato, observando el debido proceso, para lo cual se allana a responder por los daños y perjuicios que tales violaciones hayan ocasionado.",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      }
+    ],
+    "oferentes": [
+      {
+        "id": "O1",
+        "nombre": "oferta_correcta",
+        "costo": null,
+        "plazo_dias": null,
+        "cumplimientos": [
+          {
+            "reqId": "R-001",
+            "estado": "CUMPLE",
+            "evidencia": "Cumple, documento base: Formulario-Único-de-la-Oferta-Regimen-Especial-BYS"
+          }
+        ],
+        "riesgos": []
+      }
+    ],
+    "riesgos": [],
+    "diferencias_clave": [],
+    "recomendaciones": [
+      "Proveer RUC válido para habilitación."
+    ],
+    "ruc_validacion": {
+      "ruc": null,
+      "nombre": null,
+      "habilitado": false,
+      "notas": "RUC no encontrado en el documento"
+    },
+    "semaforo": "aprobado",
+    "pesosCategoria": {
+      "Legal": 0.4,
+      "Tecnica": 0.4,
+      "Economica": 0.2
+    }
   }
 ]
