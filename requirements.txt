@@ -16,3 +16,4 @@ PyMuPDF
 Pillow
 pytesseract
 jinja2
+python-multipart
