@@ -91,8 +91,8 @@ class Settings:
     CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-4o-mini")
 
     # chunking
-    CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1200"))
-    CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "120"))
+    CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1400"))
+    CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "140"))
 
     # recortes de contexto por documento
     CTX_MAX_CHARS_PER_DOC = int(os.getenv("CTX_MAX_CHARS_PER_DOC", "12000"))
@@ -1331,41 +1331,22 @@ class ChatRequest(BaseModel):
 
 @app.on_event("startup")
 def startup_index_base():
-    reset_and_index()
+    # Solo asegura BASE si falta (o si FORCE_REINDEX=true)
+    ensure_base_index_exists(force=False)
+    # No limpiar uploads aquí: deja que viva entre reinicios (más liviano)
+    # Si quieres limpiar en cada arranque, descomenta la siguiente línea:
+    # clear_uploads_and_index()
 
 @app.get("/", response_class=HTMLResponse)
 async def home():
-    reset_and_index()
-    return templates.TemplateResponse("index.html", {"request": {}})  
+    # Antes se reindexaba aquí; eso causaba picos de RAM en cada request a "/"
+    return templates.TemplateResponse("index.html", {"request": {}})
 
-def reset_and_index():
-    index_knowledge_tree(S.KNOWLEDGE_DIR, S.BASE_COLLECTION)
-    # limpiar uploads en disco e índice
-    try:
-        if S.UPLOAD_DIR.exists():
-            for filename in os.listdir(S.UPLOAD_DIR):
-                filepath = S.UPLOAD_DIR / filename
-                try:
-                    if filepath.is_file() or filepath.is_symlink(): filepath.unlink()
-                    elif filepath.is_dir(): shutil.rmtree(filepath)
-                except Exception: pass
-        else:
-            S.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        pass
-    try:
-        vs = _ensure_chroma(S.UPLOADS_COLLECTION)
-        got = vs._collection.get(include=[])
-        ids = got.get("ids") or []
-        if ids: vs._collection.delete(ids=ids)
-        try: vs.persist()
-        except Exception: pass
-    except Exception:
-        pass
-    try: sync_uploads_index()
-    except Exception: pass
-    global ANALYSIS_BY_RUC, UPLOAD_RUC_INDEX
-    ANALYSIS_BY_RUC = {}; UPLOAD_RUC_INDEX = {}
+# (Opcional) endpoint para forzar reindex y limpieza manualmente cuando tú decidas
+@app.post("/api/admin/reindex-base")
+def admin_reindex_base():
+    ensure_base_index_exists(force=True)
+    return {"ok": True, "message": "Reindexación BASE forzada completada."}
 
 def _filename_for_stem(stem: str) -> Optional[str]:
     for p in S.UPLOAD_DIR.glob("*.pdf"):
@@ -1816,3 +1797,66 @@ async def persist_respuesta2_items(items: list[dict]):
 
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(arr, f, ensure_ascii=False, indent=2)
+# =========================
+# Indexación perezosa (solo si falta)
+# =========================
+def _base_index_exists() -> bool:
+    try:
+        vs = _ensure_chroma(S.BASE_COLLECTION)
+        # Si la colección existe y tiene contenido, ya hay índice
+        return (vs._collection.count() or 0) > 0
+    except Exception:
+        return False
+
+def ensure_base_index_exists(force: bool = False) -> None:
+    """
+    Crea/actualiza el índice BASE una sola vez, a menos que 'force' sea True.
+    Control por environment:
+      - FORCE_REINDEX=true  -> fuerza la reindexación
+    """
+    force = force or (os.getenv("FORCE_REINDEX", "false").lower() == "true")
+    if not force and _base_index_exists():
+        return
+    index_knowledge_tree(S.KNOWLEDGE_DIR, S.BASE_COLLECTION)
+
+def clear_uploads_and_index():
+    """
+    Limpia los uploads y su índice (para cambiar de proceso o reinicios controlados).
+    """
+    # limpiar uploads en disco
+    try:
+        if S.UPLOAD_DIR.exists():
+            for filename in os.listdir(S.UPLOAD_DIR):
+                filepath = S.UPLOAD_DIR / filename
+                try:
+                    if filepath.is_file() or filepath.is_symlink(): filepath.unlink()
+                    elif filepath.is_dir(): shutil.rmtree(filepath)
+                except Exception:
+                    pass
+        else:
+            S.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+
+    # limpiar colección de uploads
+    try:
+        vs = _ensure_chroma(S.UPLOADS_COLLECTION)
+        got = vs._collection.get(include=[])
+        ids = got.get("ids") or []
+        if ids:
+            vs._collection.delete(ids=ids)
+        try:
+            vs.persist()
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+    try:
+        sync_uploads_index()
+    except Exception:
+        pass
+
+    # reset de caches en memoria
+    global ANALYSIS_BY_RUC, UPLOAD_RUC_INDEX
+    ANALYSIS_BY_RUC, UPLOAD_RUC_INDEX = {}, {}
