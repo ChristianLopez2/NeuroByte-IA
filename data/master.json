@@ -36,6 +36,10 @@
       {
         "archivo": "CODE3ECUADOR - 44890056",
         "texto": "Oferta: CODE3ECUADOR - 44890056\nReferencia BASE — costo: 8797.50, plazo: 30 días\nOferente: CODE3ECUADOR - 44890056 — costo: 8797.50, plazo: 30 días\nRUC 1726739152001 — HABILITADO (Razón social: ORDO¿Z MARTINEZ SABRINA SILOE, Estado: ACTIVO)\nSemáforo: APROBADO\nCumplimientos relevantes:\n- Cumple con la entrega en 30 días.\n- Garantía de 5 años en todos los equipos.\n- Pago del 100% contra entrega.\nBrechas detectadas y acciones:\n- No se detectaron brechas significativas en la oferta presentada.\nRiesgos del oferente:\n- No se reportan riesgos significativos, la oferta cumple con los requisitos establecidos.\nPesos categoría: Legal 0.4, Técnica 0.4, Económica 0.2"
+      },
+      {
+        "archivo": "REINABECERRAJULIOANDRES - 44890047",
+        "texto": "Oferta: REINABECERRAJULIOANDRES - 44890047\nReferencia BASE — costo: N/D, plazo: N/D días\nOferente: REINABECERRAJULIOANDRES - 44890047 — costo: 8062.65, plazo: 30 días\nRUC 1002426128001 — HABILITADO (Razón social: REINA BECERRA JULIO ANDRES, Estado: ACTIVO)\nSemáforo: APROBADO\nCumplimientos relevantes:\n- Cumple con la presentación de la ficha técnica o catálogo de productos.\n- El plazo de ejecución es de 30 días, conforme a lo solicitado.\n- La garantía ofrecida es de 5 años para los componentes eléctricos.\nBrechas detectadas y acciones:\n- No se presenta un costo base para comparación, lo que dificulta la evaluación de la oferta. Se recomienda incluir un costo base en futuras ofertas.\nRiesgos del oferente:\n- Riesgo ALTO: No se presenta garantía adicional, lo que podría implicar problemas en caso de incumplimiento.\nPesos categoría: Legal 0.4, Técnica 0.4, Económica 0.2"
       }
     ],
     "comparativo_texto": "La oferta de EJEMPLO DE CONTRATO - RETO 1 cumple con todos los requisitos relevantes. No se identificaron diferencias significativas en plazos o montos. | La oferta de 5_Proforma_0190373479001 cumple con todos los requisitos relevantes y está habilitada. No se presentan diferencias significativas en plazos o montos. | La oferta de EJEMPLO DE CONTRATO - RETO 1 cumple con todos los requisitos relevantes. No se encontraron diferencias significativas en plazos o montos con respecto a las expectativas. | La oferta de 5_Proforma_0190373479001 cumple con todos los requisitos establecidos, destacando su habilitación y cumplimiento de compromisos. No se presentan diferencias significativas en costo o plazo. | El cumplimiento de la oferta es deficiente, ya que no se presenta evidencia de aceptación de compromisos ni de reserva de información. No se detectan diferencias relevantes en costo o plazo. | La oferta de 44890047 cumple con los requisitos legales y técnicos, aunque presenta brechas en la documentación de requisitos mínimos. El plazo de 30 días es competitivo. | El cumplimiento más destacado es la aceptación de los compromisos establecidos. Sin embargo, la oferta no presenta un plazo "
@@ -831,6 +835,176 @@
           "ruc_validacion": {
             "ruc": "1726739152001",
             "nombre": "ORDO¿Z MARTINEZ SABRINA SILOE",
+            "habilitado": true,
+            "notas": "OK"
+          },
+          "semaforo": "aprobado",
+          "pesosCategoria": {
+            "Legal": 0.4,
+            "Tecnica": 0.4,
+            "Economica": 0.2
+          }
+        }
+      },
+      {
+        "archivo": "REINABECERRAJULIOANDRES - 44890047",
+        "destino": {
+          "familia": "bienes_servicios",
+          "procedimiento": "Cotizacion",
+          "label": "bienes_servicios — Cotizacion"
+        },
+        "json": {
+          "secciones": {
+            "legales": [],
+            "tecnicas": [],
+            "economicas": [
+              "el “Formulario de la Oferta” o “Formulario de compromiso”, la debe incluir en el"
+            ],
+            "otros": []
+          },
+          "procesoId": null,
+          "referencia": {
+            "costo": 8062.65,
+            "plazo_dias": 30
+          },
+          "requisitos": [
+            {
+              "id": "R-001",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "7. Acepta que en el caso de que se comprobare una violación a los compromisos",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-002",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "### DOC: Formulario-de-Compromiso-de-Asociacion-o-Consorcio-Regimen-Especial2 (BASE)",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-003",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "(Nacionalidad), quien está expresamente facultado representar en la fase",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-004",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "c) Los compromisos y obligaciones que asumirán las partes en la fase de ejecución",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-005",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "formalizarán el presente compromiso mediante la suscripción de la pertinente",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-006",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "### DOC: 3_formulario_de_compromiso_de_asociacion_o_consorcio_de_cotizacion (BASE)",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-007",
+              "categoria": "Legal",
+              "sub": null,
+              "texto": "miembros, debe ser igual al 100%.",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-008",
+              "categoria": "Legal",
+              "sub": "Plazos/Cronograma",
+              "texto": "g)  La constitución de la asociación o consorcio se la realizará dentro del plazo",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-009",
+              "categoria": "Legal",
+              "sub": "Plazos/Cronograma",
+              "texto": "h) El plazo del compromiso de asociación o consorcio y plazo del acuerdo en caso",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-010",
+              "categoria": "Legal",
+              "sub": "Plazos/Cronograma",
+              "texto": "de resultar adjudicatario, cubrirá la totalidad del plazo precontractual, hasta antes",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-COSTO",
+              "categoria": "Economica",
+              "sub": "Precio",
+              "texto": "Costo ofertado declarado",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            }
+          ],
+          "oferentes": [
+            {
+              "id": "O1",
+              "nombre": "REINABECERRAJULIOANDRES - 44890047",
+              "costo": 8062.65,
+              "plazo_dias": 30,
+              "cumplimientos": [
+                {
+                  "reqId": "R-COSTO",
+                  "estado": "CUMPLE",
+                  "evidencia": "TOTAL $8,062.65"
+                }
+              ],
+              "riesgos": [
+                {
+                  "nivel": "ALTO",
+                  "clausula": null,
+                  "pagina": null,
+                  "descripcion": "No se presenta garantía adicional, lo que podría implicar problemas en caso de incumplimiento."
+                }
+              ]
+            }
+          ],
+          "riesgos": [
+            {
+              "tipo": "economico",
+              "detalle": "No se presenta un costo base para comparación, lo que dificulta la evaluación de la oferta.",
+              "critico": true
+            }
+          ],
+          "diferencias_clave": [],
+          "recomendaciones": [
+            "Incluir un costo base en futuras ofertas para facilitar la evaluación."
+          ],
+          "ruc_validacion": {
+            "ruc": "1002426128001",
+            "nombre": "REINA BECERRA JULIO ANDRES",
             "habilitado": true,
             "notas": "OK"
           },
