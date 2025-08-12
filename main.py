@@ -386,6 +386,42 @@ def index_knowledge_tree(kb_root: Path, collection_name: str) -> int:
     except Exception: pass
     return added
 
+def _enforce_consistency_between_text_and_json(data_json: dict) -> dict:
+    """Si la narrativa menciona riesgos, asegúrate de copiarlos al JSON si faltan."""
+    try:
+        r1 = (data_json.get("respuesta1") or {}).get("por_archivo") or []
+        r2 = (data_json.get("respuesta2") or {}).get("por_archivo") or []
+        by_file = { (it or {}).get("archivo"): it for it in r2 }
+        for item in r1:
+            stem = (item or {}).get("archivo")
+            texto = ((item or {}).get("texto") or "").lower()
+            if not stem or stem not in by_file: 
+                continue
+            j = (by_file[stem] or {}).get("json") or {}
+            # Si ya hay riesgos, no tocar
+            jr = j.get("riesgos") or []
+            # Detecta “Riesgos del oferente:\nBAJO|MEDIO|ALTO: ...”
+            bloques = re.findall(r"riesgos del oferente:\s*(.*)", texto, flags=re.I|re.S)
+            if bloques and not jr:
+                lines = [l.strip() for l in re.split(r"[\n•\-]+", bloques[0]) if l.strip()]
+                out = []
+                for l in lines:
+                    m = re.match(r"(ALTO|MEDIO|BAJO)\s*:\s*(.+)", l, flags=re.I)
+                    if m:
+                        out.append({
+                            "nivel": m.group(1).upper(),
+                            "clausula": None,
+                            "pagina": None,
+                            "descripcion": m.group(2).strip()
+                        })
+                if out:
+                    j["riesgos"] = out
+                    by_file[stem]["json"] = j
+        return data_json
+    except Exception:
+        return data_json
+
+
 # =========================
 # Uploads
 # =========================
@@ -409,6 +445,9 @@ def classify_upload(pdf_path: Path) -> Dict[str, Any]:
 #         except Exception: pass
 #     return len(docs)
 
+# =========================
+# Uploads
+# =========================
 FAMILIA_PROCEDIMIENTO_VALIDOS = [
     {"familia": "bienes_servicios", "procedimiento": "Cotizacion"},
     {"familia": "bienes_servicios", "procedimiento": "Licitacion"},
@@ -422,20 +461,23 @@ FAMILIA_PROCEDIMIENTO_VALIDOS = [
 ]
 
 def index_uploaded_pdf(pdf_path: Path, collection_name: str, familia: str, procedimiento: str) -> int:
-    # Si falta familia o procedimiento, intentar clasificarlos
+    """
+    Indexa el PDF de oferta en la colección de uploads. Devuelve SIEMPRE un entero (#chunks añadidos).
+    """
+    # Si falta familia o procedimiento, intentar clasificarlos (mejor evitar, pero dejamos fallback)
     if not familia or not procedimiento:
         clasif = classify_upload(pdf_path)
         familia = (clasif.get("familia") or "").strip()
         procedimiento = (clasif.get("procedimiento") or "").strip()
 
-    # Validar que estén en la lista permitida
-    if not any(
-        familia == fp["familia"] and procedimiento == fp["procedimiento"]
-        for fp in FAMILIA_PROCEDIMIENTO_VALIDOS
-    ):
-        return 0  # No hay match válido → no indexar
+    # Validación estricta del par familia/procedimiento
+    if not any(familia == fp["familia"] and procedimiento == fp["procedimiento"]
+               for fp in FAMILIA_PROCEDIMIENTO_VALIDOS):
+        return 0
 
     vs = _ensure_chroma(collection_name)
+
+    # Borrar entradas previas del mismo archivo
     try:
         vs._collection.delete(where={"source": {"$eq": pdf_path.name}})
     except Exception:
@@ -445,7 +487,6 @@ def index_uploaded_pdf(pdf_path: Path, collection_name: str, familia: str, proce
     if not text:
         return 0
 
-    # Meta obligatoria desde el front
     meta = {
         "path": str(pdf_path),
         "source": pdf_path.name,
@@ -463,7 +504,36 @@ def index_uploaded_pdf(pdf_path: Path, collection_name: str, familia: str, proce
             vs.persist()
         except Exception:
             pass
-    return len(docs)
+        return len(docs)
+
+    return 0
+
+
+# --- Helpers para normalizar familia/procedimiento ----
+def _norm_key(s: str | None) -> str:
+    s = ''.join(c for c in unicodedata.normalize("NFD", (s or "")) if unicodedata.category(c) != "Mn")
+    s = s.lower()
+    s = re.sub(r'[^a-z0-9]+', ' ', s)     # todo lo no alfanum a espacio
+    s = re.sub(r'\b y \b', ' ', s)        # quitar " y "
+    s = re.sub(r'\s+', ' ', s).strip()
+    return s
+
+def _canonize_fp(familia: str | None, procedimiento: str | None) -> tuple[str | None, str | None]:
+    nf, np = _norm_key(familia), _norm_key(procedimiento)
+    # normalizaciones suaves
+    if np.startswith("menor"): np = "menor cuantia"
+    if np.startswith("subasta inversa"): np = "subasta inversa electronica"
+
+    for fp in FAMILIA_PROCEDIMIENTO_VALIDOS:
+        af, ap = _norm_key(fp["familia"]), _norm_key(fp["procedimiento"])
+        if nf == af and np == ap:
+            return fp["familia"], fp["procedimiento"]
+    # Relajar si vino proc medio raro pero familia correcta
+    for fp in FAMILIA_PROCEDIMIENTO_VALIDOS:
+        if _norm_key(fp["familia"]) == nf and (not np or np in _norm_key(fp["procedimiento"])):
+            return fp["familia"], fp["procedimiento"]
+    return None, None
+
 
 # =========================
 # LLM
@@ -475,6 +545,46 @@ def make_llm(temperature: float = 0.1) -> ChatOpenAI:
 # RUC / SRI
 # =========================
 RUC_RE = re.compile(r"\b(\d{13})\b")
+
+# --- Patrones para capturar razón social en la OFERTA ---
+RS_LABELS = (
+    r"raz[oó]n\s+social", r"contratista", r"proveedor", r"adjudicado\s+a",
+    r"entre\s+[:\-–]", r"empresa", r"oferente"
+)
+RS_NEAR = re.compile(rf"(?:{'|'.join(RS_LABELS)})\s*[:\-–]?\s*(.+)", re.IGNORECASE)
+
+# Línea de texto que parece razón social (mayúsculas/mixta con S.A., CÍA., LTDA., etc.)
+RS_CAND_RE = re.compile(r"\b([A-ZÁÉÍÓÚÜÑ0-9][A-ZÁÉÍÓÚÜÑ0-9\&\.\- ,]{3,}(?:S\.?A\.?|C[ÍI]A\.?\s*L?T?D?A?\.?|LTDA\.?|S\.?A\.?S\.?)?)\b")
+
+def _extract_vendor_names(oferta_text: str) -> list[str]:
+    if not oferta_text: 
+        return []
+    cands = []
+
+    # 1) Líneas con etiqueta (Razón social:, Proveedor:, etc.)
+    for line in oferta_text.splitlines():
+        m = RS_NEAR.search(line)
+        if m:
+            seg = m.group(1).strip()
+            # Si recortaron con “Entre … y …”, toma el primer bloque “hasta , o ;”
+            seg = re.split(r"[;,]| y ", seg, maxsplit=1)[0].strip()
+            cands.append(seg)
+
+    # 2) Candidatos por forma (mayúsculas + terminaciones típicas)
+    for m in RS_CAND_RE.finditer(oferta_text):
+        cands.append(m.group(1).strip())
+
+    # 3) Limpieza básica y dedup
+    out, seen = [], set()
+    for c in cands:
+        c = re.sub(r"\s{2,}", " ", c).strip(" :–—-")
+        if len(c) < 4: 
+            continue
+        k = c.lower()
+        if k not in seen:
+            seen.add(k); out.append(c)
+    return out[:5]
+
 
 def _normalize_ruc_payload(payload: Any) -> Dict[str, Any]:
     if isinstance(payload, list) and payload:
@@ -552,6 +662,32 @@ REQ_POS = (
     "contar con", "acreditar", "vigencia", "garantía", "garantias", "garantías",
     "certificación", "certificacion", "iso", "ruc", "experiencia", "plazo", "cronograma"
 )
+
+# Palabras para repartir en secciones y buscar evidencias
+KW_LEGAL = ("ruc", "certificaci", "garant", "multas", "penal", "contrato", "confidencial", "cumplir", "pliegos")
+KW_TEC   = ("experien", "t[ée]cnico", "equipo", "cronograma", "metodol", "capacidad", "obras similares", "plan")
+KW_ECO   = ("presupuesto", "oferta", "desglose", "precios unitarios", "pago", "forma de pago", "financ")
+
+def _harvest_evidence_lines_oferta(oferta_text: str, max_items: int = 60) -> list[str]:
+    out = []
+    for raw in (oferta_text or "").splitlines():
+        line = raw.strip()
+        if not (6 <= len(line) <= 220): 
+            continue
+        low = line.lower()
+        if any(k in low for k in (KW_LEGAL + KW_TEC + KW_ECO)):
+            out.append(line)
+            if len(out) >= max_items:
+                break
+    # dedup sencillo
+    seen, final = set(), []
+    for t in out:
+        k = t.lower()
+        if k not in seen:
+            seen.add(k); final.append(t)
+    return final
+
+
 REQ_NEG = ("conclusiones", "clausura", "análisis", "analisis", "índice", "indice", "marco", "glosario")
 
 def _split_ctx_by_role(ctx: str) -> Tuple[str, str]:
@@ -584,6 +720,16 @@ def _harvest_requirement_lines(base_text: str, max_items: int = 25) -> list[str]
         if k not in seen: seen.add(k); final.append(t)
     return final
 
+def _guess_sub_for_req(text: str) -> Optional[str]:
+    low = (text or "").lower()
+    if "ruc" in low or "certific" in low or "vigenc" in low: return "Habilitantes"
+    if "experien" in low or "obras similares" in low:      return "Experiencia"
+    if "garant" in low or "fiel" in low or "cumplim" in low: return "Garantías"
+    if "presupuesto" in low or "oferta" in low or "desglose" in low: return "Oferta"
+    if "plazo" in low or "cronograma" in low:              return "Plazos/Cronograma"
+    if "equipo" in low or "personal" in low:               return "Equipo"
+    return None
+
 def _find_numeric_near_keywords(text: str, value_re: re.Pattern, keywords: tuple[str, ...], window: int = 120) -> Optional[int]:
     if not text: return None
     low = text.lower()
@@ -604,13 +750,32 @@ OF_PLAZO_KW    = ("plazo", "oferta", "ejecución", "ejecucion", "entrega")
 
 def extract_candidates(ctx_offer: str, archivo_stem: str) -> dict:
     base_text, oferta_text = _split_ctx_by_role(ctx_offer)
-    proc_ids  = list(dict.fromkeys(PROC_ID_RE.findall(base_text)))
-    base_cost = _find_numeric_near_keywords(base_text, MONEY_RE, BASE_COST_KW)
-    base_days = _find_numeric_near_keywords(base_text, DAYS_RE, BASE_PLAZO_KW)
+
+    # IDs de proceso, costos/plazos de BASE y OFERTA
+    proc_ids   = list(dict.fromkeys(PROC_ID_RE.findall(base_text)))
+    base_cost  = _find_numeric_near_keywords(base_text, MONEY_RE, BASE_COST_KW)
+    base_days  = _find_numeric_near_keywords(base_text, DAYS_RE,  BASE_PLAZO_KW)
     oferta_cost = _find_numeric_near_keywords(oferta_text, MONEY_RE, OF_COST_KW)
-    oferta_days = _find_numeric_near_keywords(oferta_text, DAYS_RE, OF_PLAZO_KW)
+    oferta_days = _find_numeric_near_keywords(oferta_text, DAYS_RE,  OF_PLAZO_KW)
+
+    # Requisitos (citas literales) y cláusulas detectadas en BASE
     req_lines = _harvest_requirement_lines(base_text)
-    clauses = list(dict.fromkeys(CLAUSE_RE.findall(base_text)))
+    clauses   = list(dict.fromkeys(CLAUSE_RE.findall(base_text)))
+
+    # Sub‑hints para requisitos (no obligatorio, solo guía al LLM)
+    sub_hints = [{"texto": t, "sub": _guess_sub_for_req(t)} for t in req_lines]
+
+    # Nombres posibles del oferente SOLO desde el texto de la oferta
+    vendor_names = _extract_vendor_names(oferta_text)
+
+    # Evidencias de la oferta (líneas con palabras clave) para cotejar CUMPLE/PARCIAL
+    oferta_evidences = _harvest_evidence_lines_oferta(oferta_text, max_items=80)
+
+    # Señales por ámbito (ayuda a poblar "secciones")
+    sec_leg = [l for l in req_lines if any(k in l.lower() for k in ("ruc","contrato","confidencial","garant"))]
+    sec_tec = [l for l in req_lines if any(k in l.lower() for k in ("experien","equipo","cronograma","metodol","plan"))]
+    sec_eco = [l for l in req_lines if any(k in l.lower() for k in ("presupuesto","oferta","desglose","pago"))]
+
     return {
         "archivo": archivo_stem,
         "base": {
@@ -618,12 +783,20 @@ def extract_candidates(ctx_offer: str, archivo_stem: str) -> dict:
             "costos": [base_cost] if base_cost is not None else [],
             "plazos_dias": [base_days] if base_days is not None else [],
             "req_samples": req_lines[:20],
-            "clausulas": clauses[:20]
+            "clausulas": clauses[:20],
+            "secciones_hint": {
+                "legales": sec_leg[:10],
+                "tecnicas": sec_tec[:10],
+                "economicas": sec_eco[:10],
+                "otros": []
+            },
+            "req_sub_hints": sub_hints  # ← guía para completar "sub"
         },
         "oferta": {
             "costos": [oferta_cost] if oferta_cost is not None else [],
             "plazos_dias": [oferta_days] if oferta_days is not None else [],
-            "nombres_posibles": [archivo_stem]
+            "nombres_posibles": vendor_names[:5],     # ← ahora vienen nombres reales (si existen)
+            "evidence_lines": oferta_evidences[:80]   # ← material para justificar "evidencia"
         }
     }
 
@@ -643,7 +816,7 @@ REGLAS GENERALES (NO INVENTES):
 - Cuando cites documentos, usa SOLO el nombre tras '### DOC:' (sin .pdf ni colección).
 - No incluyas texto fuera del JSON final. Sin backticks, sin comentarios.
 
-# ESTRUCTURA DE SALIDA (OBLIGATORIA)
+# SALIDA (FORMATO OBLIGATORIO)
 Devuelve UN ÚNICO JSON **válido** exactamente con esta forma:
 
 {
@@ -657,9 +830,9 @@ Devuelve UN ÚNICO JSON **válido** exactamente con esta forma:
     "por_archivo": [
       { "archivo": "<stem>",
         "destino": {
-            "familia": "<string|null>",
-            "procedimiento": "<string|null>",
-            "label": "<familia> — <procedimiento>|null"
+          "familia": "<string|null>",
+          "procedimiento": "<string|null>",
+          "label": "<familia> — <procedimiento>|null"
         },
         "json": {
           "secciones": {
@@ -671,20 +844,25 @@ Devuelve UN ÚNICO JSON **válido** exactamente con esta forma:
           "procesoId": "<string|null>",
           "referencia": { "costo": <number|null>, "plazo_dias": <number|null> },
           "requisitos": [
-            { "id": "R-001", "categoria": "Legal|Tecnica|Economica", "sub": "<string|null>",
-              "texto": "<CITA LITERAL>", "peso": <number>, "clausula": "<string|null>", "pagina": <number|null> }
+            { "id": "R-001", "categoria": "Legal|Tecnica|Economica",
+              "sub": "<string|null>", "texto": "<CITA LITERAL>",
+              "peso": <number>, "clausula": "<string|null>", "pagina": <number|null> }
           ],
           "oferentes": [
             { "id": "O1", "nombre": "<string|null>", "costo": <number|null>, "plazo_dias": <number|null>,
-              "cumplimientos": [ { "reqId": "R-001", "estado": "CUMPLE|PARCIAL|NO CUMPLE", "evidencia": "<string|null>" } ],
-              "riesgos": [ { "nivel": "ALTO|MEDIO|BAJO", "clausula": "<string|null>", "pagina": <number|null>, "descripcion": "<string>" } ]
+              "cumplimientos": [
+                { "reqId": "R-001", "estado": "CUMPLE|PARCIAL|NO CUMPLE", "evidencia": "<string|null>" }
+              ],
+              "riesgos": [
+                { "nivel": "ALTO|MEDIO|BAJO", "clausula": "<string|null>", "pagina": <number|null>, "descripcion": "<string>" }
+              ]
             }
           ],
           "riesgos": [
-            {"tipo": "legal|tecnico|economico", "detalle": "<texto>", "critico": true|false}
+            { "tipo": "legal|tecnico|economico", "detalle": "<texto>", "critico": true|false }
           ],
           "diferencias_clave": [
-            {"tema": "plazo|monto|garantias|otros", "base": "...", "oferente": "...", "impacto": "bajo|medio|alto"}
+            { "tema": "plazo|monto|garantias|otros", "base": "...", "oferente": "...", "impacto": "bajo|medio|alto" }
           ],
           "recomendaciones": ["..."],
           "ruc_validacion": {
@@ -695,54 +873,95 @@ Devuelve UN ÚNICO JSON **válido** exactamente con esta forma:
           },
           "semaforo": "aprobado|faltan_requisitos|no_cumple",
           "pesosCategoria": { "Legal": <number>, "Tecnica": <number>, "Economica": <number> }
-      } }
+        }
+      }
     ]
   }
 }
 
-# CRITERIOS ESPECÍFICOS PARA 'respuesta2.json'
-- "destino": tomarlo EXCLUSIVAMENTE del BLOQUE: Dejar destino = label;
-- "procesoId": toma EXACTAMENTE de base.procesoIds (si no hay → null);
-- "referencia.costo" y "referencia.plazo_dias": SOLO de base.costos / base.plazos_dias (si no hay → null);
-- "oferentes[0].nombre": SOLO de oferta.nombres_posibles, NUNCA usar el nombre del archivo, ni el contenido de la BASE
-    ÚNICAMENTE buscar en el texto de la OFERTA (fuente oferta o documentos adjuntos que correspondan a la oferta).
-    Prioridad de búsqueda:
-        Razón social que aparezca junto a frases como:
-        “Adjudicado a: …”
-        “Contratista: …”
-        “Proveedor: …”
-        “Razón Social: …”
-        “Entre … y …”
-        Razón social que aparezca asociada a un RUC detectado en la OFERTA.
-        El texto detectado debe usarse tal cual aparece (no abreviar, no traducir, no corregir ortografía).
-        Si no hay coincidencia clara en la OFERTA, dejar nombre como null
-    ; 
-- "costo"/"plazo_dias": SOLO de oferta.costos / oferta.plazos_dias.
-- "requisitos": cada "texto" debe ser **cita literal** de base.req_samples (sin parafrasear). Incluye 5–20 si hay suficientes.
-  - "clausula": intenta mapear con base.clausulas; si no aplica → null.
-  - "peso": si no hay criterio, usa 1.0; rango [0.5, 2.0].
-- "cumplimientos": decide CUMPLE/PARCIAL/NO CUMPLE comparando literalmente el requisito con el contenido de la OFERTA; si no hay evidencia → "NO CUMPLE".
-- "riesgos": marca "critico": true cuando afecte garantías, multas, plazos o pagos de forma material.
-- "secciones": reparte frases/ítems detectados en cada ámbito (legales/técnicas/económicas/otros).
-- "semaforo": aprobado=0 inconsistencias; faltan_requisitos=1–2 no críticas; no_cumple=3+ o críticas.
-- "pesosCategoria": si no hay info explícita, usa { "Legal":0.4, "Tecnica":0.4, "Economica":0.2 }.
+# CONSISTENCIA ENTRE NARRATIVA Y JSON (OBLIGATORIA)
+- Todo riesgo mencionado en "respuesta1.por_archivo[].texto" debe existir también en "respuesta2.por_archivo[].json.riesgos" con el mismo nivel (ALTO|MEDIO|BAJO), y viceversa.
+- Si "respuesta2....oferentes[].cumplimientos" marca NO CUMPLE o PARCIAL, en la narrativa debe aparecer en "Brechas detectadas y acciones".
+- No dejes "secciones" vacías si hay material en base.secciones_hint.
+- No inventes páginas; si no la sabes, pon null.
 
-# CRITERIOS PARA 'respuesta1.texto' (NARRATIVA)
-- No repitas datos ya mostrados.
-- Estructura por archivo:
-  1) "Oferta: <nombre_archivo_sin_pdf>"
-  2) Si hay procesoId, muéstralo.
-  3) "Referencia BASE — costo: <N/D o número>, plazo: <N/D o número> días"
-  4) "Oferente: <nombre> — costo: <N/D o número>, plazo: <N/D o número> días"
-  5) "RUC <num> — HABILITADO/NO HABILITADO (Razón social: <...>, Estado: <...>)" cuando exista validación
-  6) "Semáforo: APROBADO/FALTAN_REQUISITOS/NO_CUMPLE"
-  7) "Cumplimientos relevantes:" 3–10 bullets (requisito, evidencia breve, doc base).
-  8) "Brechas detectadas y acciones:" bullets (requisito, evidencia no encontrada o parcial, ACCIÓN CONCRETA, doc base).
-  9) "Riesgos del oferente:" [nivel] descripción (cláusula, pág).
-  10) "Pesos categoría: Legal X, Técnica Y, Económica Z" si están.
+# COMPLETITUD OBLIGATORIA (RIESGO, CATEGORÍA Y COSTO COMO REQUISITO SIEMPRE)
+**A. Riesgos SIEMPRE presentes (oferente y global)**
+1) El arreglo "oferentes[].riesgos" NUNCA debe ir vacío. Si la OFERTA no reporta riesgos explícitos:
+   - Derívalos de evidencias internas:
+     • NO CUMPLE o PARCIAL en requisitos **legales** sobre garantías, multas/penalidades, plazos contractuales o pagos ⇒ riesgo ALTO (critico=true).
+     • NO CUMPLE o PARCIAL en requisitos **técnicos** clave ⇒ riesgo MEDIO.
+     • Falta de evidencia menor/formal ⇒ riesgo BAJO.
+   - Si solo hay “ausencia total de evidencia” sin mención específica, crea un riesgo BAJO con descripción “Falta de evidencia en N requisitos” y clausula/pagina = null.
+2) El arreglo "json.riesgos" (global) también NUNCA debe ir vacío. Resume al menos un riesgo coherente con los de oferentes.
+3) Mapea el **nivel** por impacto (ALTO/MEDIO/BAJO) como se indicó.
+
+**B. Categoría SIEMPRE presente en cada requisito**
+- "requisitos[].categoria": Legal, Tecnica o Economica (según reglas y secciones_hint).
+- Si sigue ambiguo, usa **Legal** y duplica en "secciones.otros".
+
+**C. Costo COMO REQUISITO OBLIGATORIO**
+1) Debe existir un requisito económico de **costo ofertado** en "requisitos".
+   - Si base.req_samples lo trae, usa esa **cita literal**.
+   - Si no existe, crea al final:
+     {
+       "id":"R-COSTO","categoria":"Economica","sub":"Precio",
+       "texto":"Costo ofertado declarado","peso":1.0,"clausula":null,"pagina":null
+     }
+2) Para cada oferente, genera un "cumplimientos" del costo (reqId = el del requisito de costo):
+   - CUMPLE si `oferentes[].costo` != null y hay evidencia textual del monto.
+   - PARCIAL si hay rango/condición o moneda ambigua.
+   - NO CUMPLE si `oferentes[].costo` es null o contradictorio.
+   - "evidencia": cita breve de la línea con el monto (o null si no existe).
+3) Riesgo económico por costo:
+   - NO CUMPLE ⇒ riesgo **economico** MEDIO (ALTO si la BASE exige precio único).
+   - Con referencia: dif. relativa ≥0.30 ⇒ MEDIO; ≥0.60 ⇒ ALTO.
+
+**D. NORMALIZACIÓN NUMÉRICA (entrada y salida)**
+- Al **leer** montos y plazos desde textos/evidencias, interpreta **“.” como separador decimal** y **“,” como separador de miles**.  
+  Ej.: "2,000,000.50" ⇒ 2000000.50 ; "50,000" ⇒ 50000.
+- Al **escribir** en el JSON (campos numéricos: costos, plazos, pesos, etc.):
+  • **NO** incluyas separadores de miles.  
+  • Usa **punto** como separador decimal.  
+  • Deben ser valores numéricos JSON (no strings).
+
+# CRITERIOS ESPECÍFICOS PARA 'respuesta2.json'
+- "destino": tomarlo EXCLUSIVAMENTE del BLOQUE. Dejar destino = label.
+- "procesoId": toma EXACTAMENTE de base.procesoIds (si no hay → null).
+- "referencia.costo" y "referencia.plazo_dias": SOLO de base.costos / base.plazos_dias.  
+  **Normaliza números según la sección D.**
+- "oferentes[0].nombre": SOLO de oferta.nombres_posibles (texto de la OFERTA). Si no hay match claro → null.
+- "costo"/"plazo_dias": SOLO de oferta.costos / oferta.plazos_dias. **Normaliza según D.**
+- "requisitos": 5–20 citas literales de base.req_samples (con categoría obligatoria).  
+  • "clausula" desde base.clausulas si aplica; si no, null.  
+  • "peso" por defecto 1.0 (0.5–2.0).  
+  • **Incluye el requisito de COSTO (R-COSTO si no existe en base)**.
+- "cumplimientos": CUMPLE/PARCIAL/NO CUMPLE; si NO CUMPLE/PARCIAL, llena "evidencia".
+- "riesgos": marca "critico": true cuando afecte garantías, multas, plazos o pagos de forma material.
+- "secciones": reparte en legales/técnicas/económicas/otros.
+- "semaforo": aprobado=0 inconsistencias; faltan_requisitos=1–2 no críticas; no_cumple=3+ o críticas.
+- "pesosCategoria": si no hay info, { "Legal":0.4, "Tecnica":0.4, "Economica":0.2 }.
+- IDs: "R-001..", "O1..", y "reqId" deben ser consistentes.
+
+# NARRATIVA ('respuesta1.texto')
+1) "Oferta: <nombre_archivo_sin_pdf>"
+2) Si hay procesoId, muéstralo.
+3) "Referencia BASE — costo: <N/D o número>, plazo: <N/D o número> días"
+4) "Oferente: <nombre> — costo: <N/D o número>, plazo: <N/D o número> días"
+5) "RUC <num> — HABILITADO/NO HABILITADO (Razón social: <...>, Estado: <...>)" si existe validación
+6) "Semáforo: APROBADO/FALTAN_REQUISITOS/NO_CUMPLE"
+7) "Cumplimientos relevantes:" 3–10 bullets.
+8) "Brechas detectadas y acciones:" bullets con acción concreta.
+9) "Riesgos del oferente:" al menos 1 ítem coherente con json.riesgos.
+10) "Pesos categoría: Legal X, Técnica Y, Económica Z" si están.
 
 # COMPARATIVO (respuesta1.comparativo_texto)
-- Resume en 1–3 líneas el "mejor cumplimiento" y 1–2 diferencias (plazo, monto, garantías).
+- 1–3 líneas con mejor cumplimiento y 1–2 diferencias (plazo, monto, garantías).
+
+# VALIDACIÓN DE SALIDA
+- JSON estricto, parseable.
+- **Todos los números normalizados según D.**
+- No agregues campos fuera del esquema.
 
 # INSUMOS
 - PREGUNTA_DEL_USUARIO:
@@ -751,6 +970,7 @@ Devuelve UN ÚNICO JSON **válido** exactamente con esta forma:
 - BLOQUES_DE_ENTRADA (solo 1 por llamada):
 {BLOQUES}
 """
+
 
 def json_guard(s: str) -> Dict[str, Any]:
     try:
@@ -794,7 +1014,7 @@ async def upload_pdf(
     saved = []
     auto_process = None  # para devolver al front la detección
 
-    for idx, f in enumerate(files):
+    for f in files:
         if f.content_type not in ("application/pdf", "application/octet-stream"):
             raise HTTPException(status_code=400, detail=f"{f.filename} no es PDF.")
 
@@ -812,20 +1032,25 @@ async def upload_pdf(
         with dest.open("wb") as out:
             out.write(pdf_bytes)
 
-        # 3) Indexar usando EXCLUSIVAMENTE lo enviado desde el front
-        chunks = index_uploaded_pdf(
+        # 3) Indexar (puede devolver tuple en versiones antiguas → coercion a int)
+        raw_result = index_uploaded_pdf(
             dest,
             S.UPLOADS_COLLECTION,
-            familia or "",
-            procedimiento or ""
+            (familia or "").strip(),
+            (procedimiento or "").strip()
         )
+        chunks = (raw_result[0] if isinstance(raw_result, (tuple, list)) else raw_result) or 0
+        try:
+            chunks = int(chunks)
+        except Exception:
+            chunks = 0
 
         if chunks > 0:
-        # 4) Registrar RUC en índice en memoria
+            # 4) Registrar RUC en índice en memoria
             async with ANALYSIS_LOCK:
                 UPLOAD_RUC_INDEX[safe] = ruc  # puede ser None
 
-            # 5) Establecer familia y proceso
+            # 5) Establecer familia y proceso si vino desde el front
             if familia and procedimiento:
                 auto_process = {"familia": familia.strip(), "procedimiento": procedimiento.strip()}
                 try:
@@ -839,53 +1064,25 @@ async def upload_pdf(
                 "skipped": False,
                 "ruc": ruc
             })
-
-        # # 4) Registrar RUC en índice en memoria
-        # async with ANALYSIS_LOCK:
-        #     UPLOAD_RUC_INDEX[safe] = ruc  # puede ser None
-
-        # # 5) Establecer familia y proceso
-        # # if _get_current_process() is None:
-        # #     # Clasifica por nombre + head del PDF
-        # #     try:
-        # #         head = extract_text_head(dest)
-        # #         m = CFG.match_facets(f"{dest.name}\n{head}")
-        # #         fam, proc = m.get("familia"), m.get("procedimiento")
-        # #         if fam and proc:
-        # #             auto_process = {"familia": fam, "procedimiento": proc}
-        # #             _set_current_process(auto_process)
-        # #         else:
-        # #             auto_process = None
-        # #     except Exception:
-        # #         auto_process = None
-        # try:
-        #     fam, proc = familia, procedimiento
-        #     if fam and proc:
-        #         auto_process = {"familia": fam, "procedimiento": proc}
-        #         _set_current_process(auto_process)
-        #     else:
-        #         auto_process = None
-        # except Exception:
-        #     auto_process = None
-
-        # saved.append({
-        #     "filename": safe,
-        #     "chunks": chunks,
-        #     "skipped": False,
-        #     "ruc": ruc
-        # })
+        else:
+            saved.append({
+                "filename": safe,
+                "chunks": 0,
+                "skipped": True,
+                "ruc": ruc
+            })
 
     try:
         sync_uploads_index()
     except Exception:
         pass
 
-    # Respuesta incluye el proceso detectado (si hubo)
     return {
         "ok": True,
         "files": saved,
         "detected_process": auto_process
     }
+
 
 @app.get("/api/list-pdf")
 async def list_pdf():
@@ -894,9 +1091,20 @@ async def list_pdf():
         files.append({"filename": p.name, "disk_path": str(p.resolve()), "size_bytes": p.stat().st_size})
     return {"count": len(files), "files": files}
 
+
 @app.get("/api/cambioTipoDoc")
-async def cambio_tipo_doc():
-    # limpiar uploads en disco
+async def cambio_tipo_doc(process: Optional[str] = None):
+    """
+    Cambia el tipo de Proceso/Licitación seleccionado desde el front.
+
+    - Si `process` == "auto" o viene vacío → borra la pista persistida (detección automática).
+    - Si `process` es un JSON {"familia":"...","procedimiento":"..."} válido y permitido → lo fija.
+    - Siempre limpia los uploads e índice de uploads para evitar cruces entre tipos.
+
+    Devuelve 204 (No Content) cuando se aplica el cambio.
+    """
+
+    # --- 1) Limpiar uploads en disco
     try:
         if S.UPLOAD_DIR.exists():
             for filename in os.listdir(S.UPLOAD_DIR):
@@ -913,7 +1121,7 @@ async def cambio_tipo_doc():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"No se pudo limpiar uploads: {e}")
 
-    # limpiar colección de uploads
+    # --- 2) Limpiar colección de uploads (Chroma)
     try:
         vs = _ensure_chroma(S.UPLOADS_COLLECTION)
         got = vs._collection.get(include=[])
@@ -927,18 +1135,48 @@ async def cambio_tipo_doc():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"No se pudo limpiar índice de uploads: {e}")
 
-    # re-sincronizar
+    # --- 3) Re-sincronizar índice (por seguridad)
     try:
         sync_uploads_index()
     except Exception:
         pass
 
-    # reset de estados
+    # --- 4) Reset de estados en memoria
     global ANALYSIS_BY_RUC, UPLOAD_RUC_INDEX
     async with ANALYSIS_LOCK:
         ANALYSIS_BY_RUC = {}
         UPLOAD_RUC_INDEX = {}
-    _reset_current_process()  # ⬅️ importante
+
+    # --- 5) Fijar o resetear el proceso según el parámetro
+    #       Front envía: process = "auto"  ||  process = JSON.stringify({familia, procedimiento})
+    if process and process.strip().lower() != "auto":
+        try:
+            obj = json.loads(process)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Parámetro 'process' no es JSON válido.")
+
+        fam = (obj.get("familia") or "").strip()
+        pro = (obj.get("procedimiento") or "").strip()
+        if not fam or not pro:
+            raise HTTPException(status_code=400, detail="Falta 'familia' o 'procedimiento'.")
+
+        # Validación básica contra la lista permitida
+        is_valid = any(
+            fam == fp["familia"] and pro == fp["procedimiento"]
+            for fp in FAMILIA_PROCEDIMIENTO_VALIDOS
+        )
+        if not is_valid:
+            raise HTTPException(status_code=400, detail="Par 'familia/procedimiento' no permitido.")
+
+        # Guardar hint persistente
+        try:
+            _set_current_process({"familia": fam, "procedimiento": pro})
+        except Exception:
+            # si falla la persistencia, igual continuamos (estado en memoria basta)
+            pass
+    else:
+        # auto-detección (borra la pista actual)
+        _reset_current_process()
 
     return Response(status_code=204)
 
@@ -1217,31 +1455,42 @@ async def chat_endpoint(req: ChatRequest):
     user_q = (req.query or "").strip() or "Evalúa cumplimiento por oferta, detecta brechas y acciones de mejora concretas."
     process_hint = req.process.dict() if req.process else (_get_current_process() or None)
 
-    # Archivos actuales
+     # Archivos actuales
     live_files = sorted([p.name for p in S.UPLOAD_DIR.glob("*.pdf")])
     live_stems = [Path(n).stem for n in live_files]
-    if not live_stems:
-        # Fallback a master.json si existe contenido previo
-        try:
-            m = load_master()
-            r1 = (m.get("respuesta1") or {})
-            r2 = (m.get("respuesta2") or {})
-            if (r1.get("por_archivo") or r2.get("por_archivo")):
-                # ordenar y deduplicar comparativo
-                try:
-                    r1["por_archivo"] = sorted(r1.get("por_archivo") or [], key=lambda x: (x or {}).get("archivo",""))
-                except Exception:
-                    pass
-                try:
-                    r2["por_archivo"] = sorted(r2.get("por_archivo") or [], key=lambda x: (x or {}).get("archivo",""))
-                except Exception:
-                    pass
-                r1["comparativo_texto"] = _dedup_join_pipes(r1.get("comparativo_texto") or "", limit=1200)
-                return {"respuesta1": r1, "respuesta2": r2, "_source": "master"}
-        except Exception:
-            pass
 
-        # Si no hay nada en master, devolvemos vacío
+    # 🔧 NUEVO: si no hay archivos vivos, intenta responder sobre caché/master
+    if not live_stems:
+        try:
+            r1_all, r2_all, comp_text = _collect_cached_items_for_current_uploads()
+        except Exception:
+            r1_all, r2_all, comp_text = [], [], ""
+
+        # Si hay pregunta del usuario y tenemos algo en cache/master → responde en TEXTO
+        if (r1_all or r2_all) and (req.query and req.query.strip()):
+            llm = make_llm(temperature=0.1)
+            followup_prompt = (
+                "Eres un analista de licitaciones. Debes responder ÚNICAMENTE usando el análisis previo (ANALISIS_BASE). "
+                "NO reanalices documentos ni inventes datos.\n\n"
+                "=== ANALISIS_BASE (JSON) ===\n"
+                f"{json.dumps({'respuesta1':{'por_archivo':r1_all,'comparativo_texto':comp_text}, 'respuesta2':{'por_archivo':r2_all}}, ensure_ascii=False)}\n\n"
+                "=== PREGUNTA_DEL_USUARIO ===\n"
+                f"{user_q}\n\n"
+                "- Responde en español, claro y conciso. No devuelvas JSON; responde en texto natural."
+            )
+            resp = await llm.ainvoke(followup_prompt)
+            return {"respuesta_chat": resp.content, "_source": "cache-or-master-followup"}
+
+        # Si no hay pregunta, o si no hay nada en cache/master → devuelve el snapshot JSON
+        if r1_all or r2_all:
+            return {
+                "respuesta1": {"por_archivo": sorted(r1_all, key=lambda x: (x or {}).get('archivo','')),
+                               "comparativo_texto": comp_text},
+                "respuesta2": {"por_archivo": sorted(r2_all, key=lambda x: (x or {}).get('archivo',''))},
+                "_source": "cache-or-master"
+            }
+
+        # Último recurso: vacío
         return {
             "respuesta1": {"por_archivo": [], "comparativo_texto": "Sin datos."},
             "respuesta2": {"por_archivo": []},
@@ -1360,6 +1609,7 @@ async def chat_endpoint(req: ChatRequest):
         prompt = UNIFIED_MASTER_PROMPT.replace("{USER_Q}", user_q).replace("{BLOQUES}", bloque)
         resp = await llm.ainvoke(prompt)
         data_new = json_guard(resp.content)
+        data_new = _enforce_consistency_between_text_and_json(data_new)
 
         if isinstance(data_new, dict):
             mini = {

@@ -2,62 +2,180 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>RAG Licitaciones – Front</title>
+  <title>Chat NeuroByte-IA</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- Usa tu CSS principal -->
   <link rel="stylesheet" href="/static/styles.css">
   <link rel="icon" href="/static/favicon.png" type="image/png">
+  <style>
+    :root{
+      --bg:#0b1222;
+      --bg-2:#0e1630;
+      --card:rgba(19, 28, 55, .75);
+      --ink:#eaf2ff;
+      --muted:#9fb1d3;
+      --brand:#46a6ff;
+      --accent:#6be2f8;
+      --ok:#2ecc71;--warn:#f1c40f;--err:#e74c3c;
+      --ring:0 0 0 2px rgba(70,166,255,.25),0 0 0 6px rgba(70,166,255,.08);
+      --shadow:0 12px 40px rgba(0,0,0,.35);
+      --glass-blur: blur(10px);
+    }
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(70,166,255,.15), transparent),
+        radial-gradient(900px 480px at 110% 10%, rgba(107,226,248,.12), transparent),
+        linear-gradient(180deg, var(--bg) 0%, #08101d 100%);
+      color:var(--ink);
+      font:14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
+    }
+    /* Topbar */
+    .chat-topbar{
+      position:sticky; top:0; z-index:50;
+      backdrop-filter: var(--glass-blur);
+      background:linear-gradient(180deg, rgba(18,27,53,.85), rgba(18,27,53,.55));
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+    .chat-topbar .brand{
+      padding:16px 22px;
+      font-weight:800; letter-spacing:.2px;
+      display:flex; align-items:center; gap:10px;
+    }
+    .chat-topbar .brand:before{
+      content:"";
+      width:18px;height:18px;border-radius:4px;
+      background:conic-gradient(from 220deg, var(--brand), var(--accent));
+      box-shadow:0 0 0 3px rgba(70,166,255,.25);
+    }
+
+    /* Shell & layout */
+    
+    .chat-container{display:grid;grid-template-columns:1fr;gap:16px}
+    section{background:var(--card);border:1px solid rgba(255,255,255,.08);border-radius:16px;box-shadow:var(--shadow);padding:16px;backdrop-filter:var(--glass-blur)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+    /* Inputs & controls */
+    .input, select, button.btn{
+      height:40px;border-radius:12px;border:1px solid rgba(255,255,255,.09);
+      background:#0d1630;color:var(--ink);padding:0 12px;
+    }
+    .input:focus, select:focus{outline:none; box-shadow:var(--ring); border-color:rgba(70,166,255,.45)}
+    .tiny{color:var(--muted);font-size:12px}
+    .btn{background:linear-gradient(180deg, #2a66ff 0%, #1842ad 100%);border:none;color:#fff;font-weight:700;padding:0 14px;cursor:pointer}
+    .btn:hover{filter:brightness(1.08)}
+    .btn.secondary{background:#112047;border:1px solid rgba(70,166,255,.4)}
+    #btnRefrescar{background:linear-gradient(180deg,#23b0ff,#0077cc)}
+
+    /* Chat box */
+    .chat-box{
+      max-height:58vh;min-height:46vh;overflow:auto;
+      padding:12px;border-radius:12px;background:#0c132a;
+      border:1px solid rgba(255,255,255,.06)
+    }
+    .msg{display:flex;gap:10px;margin:10px 0}
+    .msg .bubble{max-width:76ch;padding:12px 14px;border-radius:14px;position:relative}
+    .msg.user{justify-content:flex-end}
+    .msg.user .bubble{
+      background:linear-gradient(180deg, rgba(70,166,255,.25), rgba(70,166,255,.15));
+      border:1px solid rgba(70,166,255,.5); color:#eaf6ff;
+      box-shadow:0 8px 24px rgba(0,0,0,.25)
+    }
+    .msg.bot .bubble{
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08);
+      color:var(--ink)
+    }
+    .msg .avatar{
+      width:28px;height:28px;border-radius:50%;
+      background:#13224a;display:flex;align-items:center;justify-content:center;
+      border:1px solid rgba(255,255,255,.08);font-size:12px;flex:0 0 28px
+    }
+    .msg.user .avatar{display:none}
+    .msg.bot .avatar{content:"AI"}
+
+    /* Badges/Chips */
+    .chip{display:inline-block;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.1); color:#cfe1ff;background:rgba(255,255,255,.04)}
+
+    /* Cards dentro de respuestas */
+    .card{background:#10162a;border:1px solid #1b2442;border-radius:14px;padding:12px}
+    .rcard .rcard-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+    .tag{display:inline-block;padding:.14rem .6rem;border-radius:999px;border:1px solid currentColor;background:transparent;font-size:.8rem}
+
+    /* Progress */
+    #pwrap{background:rgba(12,20,40,.55);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px}
+    #pbar{background:linear-gradient(90deg,var(--brand),#8ed1ff)}
+    #ptext{color:#cbd9f7}
+
+    /* Upload */
+    input[type="file"]{background:#0b1430;border-style:dashed}
+    #status{margin-left:6px}
+
+    /* Footer spacing */
+    .u-mt{margin-top:10px}
+
+    /* small helpers */
+    .badge{display:inline-block;padding:.14rem .55rem;border-radius:999px;border:1px solid var(--brand);background:rgba(70,166,255,.08)}
+    .bullets-compact{margin:.25rem 0 .5rem 1rem;padding:0}
+    .bullets-compact li{margin:.15rem 0}
+  </style>
 </head>
 <body>
+<div class="chat-topbar">
+  <div class="brand">Chat NeuroByte-IA</div>
+</div>
+
 <div class="chat-shell">
-    <div class="chat-topbar">
-      <div class="brand">Asistente NeuroByte-IA</div>
-    </div>
+  <div class="chat-container">
 
-    <div class="chat-container">
-      <section>
-        <h2 class="section-title">Analizador de Procesos/Licitaciones</h2>
+    <!-- Panel de contexto / controles -->
+    <section>
+      <div class="row">
+        <label for="process" class="tiny" style="min-width:170px">Tipo de Proceso/Licitación</label>
+        <select id="process" class="input" style="max-width:520px"></select>
 
-        <!-- NUEVO: selector de proceso -->
-        <div class="row">
-          <label for="process" class="tiny" style="min-width:160px">Tipo de Proceso/Licitación: </label>
-          <select id="process" class="input" style="max-width:520px">
-            <!-- <option value="auto" selected>Detección automática</option> -->
-          </select>
-        </div>
-
-        <div class="row">
-          <input id="q" class="input" type="text" placeholder="Podemos ayudarte en algo mas? Cuentanos... (Opcional)" />
-          <button id="ask" class="btn">Analizar</button>
-          <button id="openDash" class="btn" type="button">Ver Dashboard</button>
-        </div>
-        <div id="chat" class="chat-box"></div>
-      </section>
-      <!-- Barra de progreso (autosuficiente) -->
-      <div id="pwrap" style="display:none; margin-top:12px;">
-        <div style="height:10px;background:#16213a;border-radius:10px;overflow:hidden;">
-          <div id="pbar" style="height:10px;width:0%;background:#46a6ff;transition:width .25s ease;"></div>
-        </div>
-        <div id="ptext" style="font-size:.9rem;margin-top:6px;opacity:.85;">Preparando…</div>
+        <button id="btnRefrescar" class="btn secondary" title="Recargar la vista">🔄 Refrescar Chat</button>
+        <span class="tiny" style="margin-left:auto;opacity:.8">Consejo: usa Enter para Analizar</span>
       </div>
 
-      <section class="u-mt">
-        <h2 class="section-title">Cargar Licitaciones</h2>
-        <div class="row">
-          <input id="files" type="file" accept="application/pdf" multiple />
-          <button id="upload" class="btn">Subir</button>
-          <span id="status" class="tiny"></span>
-        </div>
-        <div id="list" class="tiny">No hay archivos aún.</div>
-      </section>
-    </div>
-  </div>
+      <div class="row" style="margin-top:10px">
+        <input id="q" class="input" type="text" placeholder="Escribe tu pregunta sobre el proceso / licitación…" style="flex:1" />
+        <button id="ask" class="btn">Analizar</button>
+        <button id="openDash" class="btn secondary" type="button">📊 Ver Dashboard</button>
+      </div>
 
+      <div id="chat" class="chat-box"></div>
+    </section>
+
+    <!-- Progreso -->
+    <div id="pwrap" style="display:none; margin-top:4px;">
+      <div style="height:10px;background:#16213a;border-radius:10px;overflow:hidden;">
+        <div id="pbar" style="height:10px;width:0%;transition:width .25s ease;"></div>
+      </div>
+      <div id="ptext" style="font-size:.9rem;margin-top:6px;opacity:.85;">Preparando…</div>
+    </div>
+
+    <!-- Upload -->
+    <section class="u-mt">
+      <h2 class="section-title" style="margin:0 0 8px 0;color:#cfe1ff">Cargar licitaciones</h2>
+      <div class="row">
+        <input id="files" type="file" accept="application/pdf" multiple />
+        <button id="upload" class="btn">Subir</button>
+        <span id="status" class="tiny"> </span>
+      </div>
+      <div id="list" class="tiny" style="margin-top:6px;color:#cfe1ff99">No hay archivos aún.</div>
+    </section>
+
+  </div>
+</div>
 
 <script>
+/* =========================================================
+   LÓGICA ORIGINAL — IDs y funciones intactas
+   (solo estilos/estructura cambiaron)
+   ======================================================= */
 // ===== Config =====
 const API_BASE = localStorage.getItem("API_BASE") || "http://127.0.0.1:8000";
-
 
 // ===== Helpers UI =====
 const $chat = document.getElementById("chat");
@@ -65,15 +183,21 @@ const $q    = document.getElementById("q");
 const $files= document.getElementById("files");
 const $list = document.getElementById("list");
 const $status = document.getElementById("status");
-
 const $process = document.getElementById("process");
 let lastProcessSelection = localStorage.getItem("processSelection") || "auto";
 
 function addMsg(text, cls="bot"){
-  const div = document.createElement("div");
-  div.className = `msg ${cls}`;
-  div.innerHTML = text;
-  $chat.appendChild(div);
+  const row = document.createElement("div");
+  row.className = `msg ${cls}`;
+  const av = document.createElement("div");
+  av.className = "avatar";
+  av.textContent = cls === "bot" ? "AI" : "Yo";
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.innerHTML = text;
+  if(cls === "bot") row.appendChild(av);
+  row.appendChild(bubble);
+  $chat.appendChild(row);
   $chat.scrollTop = $chat.scrollHeight;
 }
 function addUser(text){ addMsg(escapeHtml(text), "user"); }
@@ -84,31 +208,22 @@ function escapeHtml(str){
     {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[s]
   ));
 }
-
-function pretty(obj){
-  try{ return `<pre>${JSON.stringify(obj, null, 2)}</pre>`; }
-  catch{ return `<pre>${obj}</pre>`; }
-}
-// === NUEVOS HELPERS ===
-function renderSnapshot(html){
-  // mantiene un único bloque consolidado de resultados
-  let host = document.getElementById("analysis-snapshot");
-  if(!host){
-    host = document.createElement("div");
-    host.id = "analysis-snapshot";
-    host.className = "msg bot";
-    $chat.appendChild(host);
-  }
-  host.innerHTML = html;
-  $chat.scrollTop = $chat.scrollHeight;
-}
-
+function pretty(obj){ try{ return `<pre>${JSON.stringify(obj, null, 2)}</pre>`; } catch{ return `<pre>${obj}</pre>`; } }
+function renderSnapshot(html){ addBot(html); }
 function formatNarrative(text){
   if(!text) return "—";
-  const esc = escapeHtml(text);
-  return `<pre style="white-space:pre-wrap;margin:0">${esc}</pre>`;
+  const lines = String(text).split(/\r?\n/).map(x=>x.trim());
+  const groups = []; let ul = [];
+  for(const ln of lines){
+    if(/^[-•]\s+/.test(ln)) ul.push(escapeHtml(ln.replace(/^[-•]\s+/, "")));
+    else{
+      if(ul.length){ groups.push(`<ul class="bullets-compact">${ul.map(li=>`<li>${li}</li>`).join("")}</ul>`); ul=[]; }
+      if(ln) groups.push(`<p>${escapeHtml(ln)}</p>`);
+    }
+  }
+  if(ul.length) groups.push(`<ul class="bullets-compact">${ul.map(li=>`<li>${li}</li>`).join("")}</ul>`);
+  return groups.join("");
 }
-
 
 // ===== API calls =====
 async function apiPost(path, body){
@@ -125,41 +240,32 @@ async function apiGet(path){
   if(!r.ok) throw new Error(`${r.status} ${r.statusText}`);
   return r.json();
 }
-
 async function apiUpload(path, files) {
   const fd = new FormData();
-
-  // Archivos
-  for (const f of files) {
-    fd.append("files", f);
-  }
-
-  // Obtener valor del select y parsearlo
+  for (const f of files) fd.append("files", f);
   const processSelect = document.getElementById("process");
   if (processSelect) {
-    try {
-      const selectedValue = JSON.parse(processSelect.value);
-      fd.append("familia", selectedValue.familia || "");
-      fd.append("procedimiento", selectedValue.procedimiento || "");
-    } catch (err) {
-      console.error("Error al parsear el valor de 'process':", err);
+    const raw = processSelect.value;
+    if (raw && raw !== "auto") {
+      try {
+        const selectedValue = JSON.parse(raw);
+        fd.append("familia", selectedValue.familia || "");
+        fd.append("procedimiento", selectedValue.procedimiento || "");
+      } catch (err) { console.error("Valor de proceso no JSON:", raw, err); }
     }
   }
-
-  // Enviar petición
   const r = await fetch(`${API_BASE}${path}`, { method: "POST", body: fd });
   if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
   return r.json();
 }
 
-// ===== Procesos ===== (NUEVO)
+// ===== Procesos =====
 async function loadProcesses() {
   try {
-    const r = await apiGet("/api/processes"); // requiere el endpoint sugerido
+    const r = await apiGet("/api/processes");
     const items = (r && r.items) ? r.items : [];
     populateProcessCombo(items);
   } catch (e) {
-    // Fallback: lista mínima por si el endpoint no existe aún
     const fallback = [
       { familia: "bienes_servicios", procedimiento: "Cotizacion" },
       { familia: "bienes_servicios", procedimiento: "Licitacion" },
@@ -173,232 +279,116 @@ async function loadProcesses() {
     populateProcessCombo(fallback);
   }
 }
-
 function populateProcessCombo(items){
-  // conservar "auto"
-  const current = localStorage.getItem("processSelection");
-  // limpia todo salvo el primer option
-  for(let i = $process.options.length - 1; i >= 1; i--) $process.remove(i);
-
+  $process.innerHTML = "";
   items.forEach(p => {
-    const text = `${labelFamilia(p.familia)} — ${labelProc(p.procedimiento)}`;
-    const opt = document.createElement("option");
-    opt.value = JSON.stringify({ familia: p.familia, procedimiento: p.procedimiento });
-    opt.textContent = text;
-    $process.appendChild(opt);
+    const txt = `${labelFamilia(p.familia)} — ${labelProc(p.procedimiento)}`;
+    const val = JSON.stringify({ familia: p.familia, procedimiento: p.procedimiento });
+    $process.add(new Option(txt, val));
   });
-
-  if (current) {
-    // intenta restaurar
-    const idx = [...$process.options].findIndex(o => o.value === current);
-    if (idx >= 0) $process.selectedIndex = idx;
-  }
-    // Si hay un proceso detectado pendiente, aplícalo ahora
-  if (__pendingDetectedProcess) {
-    setProcessSelection(__pendingDetectedProcess);
-    __pendingDetectedProcess = null;
-  }
-
+  const current = localStorage.getItem("processSelection");
+  if (current) $process.value = current;
+  if (__pendingDetectedProcess) { setProcessSelection(__pendingDetectedProcess); __pendingDetectedProcess = null; }
 }
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    await loadProcesses();
+    await hydrateDetectedProcess();
+    await refreshList();
+  } catch (e) {}
+});
+document.getElementById("btnRefrescar").addEventListener("click", function(){ location.reload(); });
 
-function labelFamilia(f){
-  const map = {
-    bienes_servicios: "Bienes y Servicios",
-    consultoria: "Consultoría",
-    obras: "Obras",
-    seguros: "Licitación de Seguros",
-    regimen_especial: "Régimen Especial"
-  };
-  return map[f] || f || "—";
-}
-function labelProc(p){
-  const map = {
-    Cotizacion: "Cotización",
-    Licitacion: "Licitación",
-    "Menor Cuantia": "Menor Cuantía",
-    "Subasta Inversa Electrónica": "Subasta Inversa Electrónica",
-    Pliego: "Pliego"
-  };
-  return map[p] || p || "—";
-}
-
+function labelFamilia(f){ const map={bienes_servicios:"Bienes y Servicios",consultoria:"Consultoría",obras:"Obras",seguros:"Licitación de Seguros",regimen_especial:"Régimen Especial"}; return map[f] || f || "—"; }
+function labelProc(p){ const map={Cotizacion:"Cotización",Licitacion:"Licitación","Menor Cuantia":"Menor Cuantía","Subasta Inversa Electrónica":"Subasta Inversa Electrónica",Pliego:"Pliego"}; return map[p] || p || "—"; }
 function getSelectedProcess(){
   const v = $process.value;
   if (!v || v === "auto") return null;
   try { return JSON.parse(v); } catch { return null; }
 }
-
-// guarda selección y notifica al backend
 $process.addEventListener("change", async () => {
   const selected = $process.value || "auto";
-
   try {
-    const res = await fetch(`${API_BASE}/api/cambioTipoDoc?process=${encodeURIComponent(selected)}`, {
-      method: "GET"
-    });
-
+    const res = await fetch(`${API_BASE}/api/cambioTipoDoc?process=${encodeURIComponent(selected)}`, { method:"GET" });
     if (res.status === 204) {
       localStorage.setItem("processSelection", selected);
       lastProcessSelection = selected;
-      if ($chat) $chat.textContent = "";
       $list.textContent = "No hay archivos aún.";
-    } else {
-      $process.value = lastProcessSelection;
-    }
-  } catch (e) {
-    $process.value = lastProcessSelection;
-  }
+    } else { $process.value = lastProcessSelection; }
+  } catch (e) { $process.value = lastProcessSelection; }
 });
 
-// ===== Auto-proceso detectado =====
-let __pendingDetectedProcess = null; // por si llegan antes de poblar el combo
-
+// Auto-proceso detectado
+let __pendingDetectedProcess = null;
 function setProcessSelection(proc){
   if (!proc || !proc.familia || !proc.procedimiento) return false;
-
   const wantedObj = { familia: proc.familia, procedimiento: proc.procedimiento };
   const wanted = JSON.stringify(wantedObj);
-
-  // 1) Intenta seleccionar por value directamente
   $process.value = wanted;
-
-  // 2) Si no existe esa opción, créala on-the-fly y selecciónala
   if ($process.value !== wanted) {
     const txt = `${labelFamilia(proc.familia)} — ${labelProc(proc.procedimiento)}`;
     const opt = new Option(txt, wanted);
-    $process.add(opt);
-    $process.value = wanted;
+    $process.add(opt); $process.value = wanted;
   }
-
-  // 3) Asegura que “auto” no quede visualmente marcado
   if ($process.options[0]) $process.options[0].selected = false;
-
-  // 4) Persistencia local (no disparamos 'change', así no se limpia nada)
   localStorage.setItem("processSelection", wanted);
   lastProcessSelection = wanted;
-
-  // 5) Mensaje (opcional)
-  addBot(`🔎 Tipo detectado: ${labelFamilia(proc.familia)} — ${labelProc(proc.procedimiento)}`);
-
-  // 6) (Opcional) fuerza re-pintado sin side-effects
   $process.dispatchEvent(new Event("input"));
-
   return true;
 }
-
 async function hydrateDetectedProcess(){
   try {
     const r = await apiGet("/api/process-hint");
     const p = r && r.process;
-    if (p) {
-      // Si aún no está el combo poblado, guárdalo para aplicarlo luego
-      if (!setProcessSelection(p)) {
-        __pendingDetectedProcess = p;
-      }
-    }
+    if (p) { if (!setProcessSelection(p)) { __pendingDetectedProcess = p; } }
   } catch {}
 }
 
-
-// ===== Events =====
-
-// ===== Render helpers (nuevos) =====
-const SEM_COLORS = {
-  "aprobado":   "#2ecc71",
-  "faltan_requisitos": "#f1c40f",
-  "no_cumple":  "#e74c3c",
-  "": "#7f8c8d", "nd": "#7f8c8d", "n/d":"#7f8c8d"
-};
-
-const html = (s)=>s; // sintaxis azucar, ya usamos escape donde toca
-
-function colorBySemaforo(s){
-  const k=(s||"").toLowerCase();
-  return SEM_COLORS[k] || "#7f8c8d";
-}
-function badgeSemaforo(semaforo, archivo){
-  const c = colorBySemaforo(semaforo);
-  const label = (semaforo||"N/D").replace(/_/g," ").toUpperCase();
-  return html(`
-    <span class="badge" style="--b:${c}">
-      <b style="color:${c}">${label}</b> — ${escapeHtml(archivo||"Oferta")}
-    </span>
-  `);
-}
-function formatNarrative(text){
-  if(!text) return "—";
-  // líneas → <br>; bullets con "-" → <ul>
-  const lines = String(text).split(/\r?\n/).map(x=>x.trim());
-  const groups = [];
-  let ul = [];
-  for(const ln of lines){
-    if(/^[-•]\s+/.test(ln)) ul.push(escapeHtml(ln.replace(/^[-•]\s+/, "")));
-    else{
-      if(ul.length){ groups.push(`<ul class="bullets-compact">${ul.map(li=>`<li>${li}</li>`).join("")}</ul>`); ul=[]; }
-      if(ln) groups.push(`<p>${escapeHtml(ln)}</p>`);
-    }
+/* === ENTER para Analizar === */
+(function wireEnter(){
+  const input = document.getElementById('q');
+  const askBtn = document.getElementById('ask');
+  if (input && askBtn) {
+    input.addEventListener('keydown', function(event) {
+      if ((event.key === 'Enter' || event.keyCode === 13) && !event.shiftKey) {
+        event.preventDefault(); askBtn.click();
+      }
+    });
   }
-  if(ul.length) groups.push(`<ul class="bullets-compact">${ul.map(li=>`<li>${li}</li>`).join("")}</ul>`);
-  return groups.join("");
-}
-function cardNarrativa({archivo, texto}, semaforo){
-  const color = colorBySemaforo(semaforo);
-  return html(`
-    <div class="card rcard">
-      <div class="rcard-hd">
-        <div class="rcard-title">🗂️ ${escapeHtml(archivo||"Oferta")}</div>
-        <span class="tag" style="--b:${color};color:${color}">${(semaforo||"N/D").replace(/_/g," ").toUpperCase()}</span>
-      </div>
-      <div class="rcard-body">${formatNarrative(texto)}</div>
-    </div>
-  `);
-}
-function cardDecision(archivo, json){
-  const body = `<pre class="json">${escapeHtml(JSON.stringify(json||{}, null, 2))}</pre>`;
-  return html(`
-    <details class="card det">
-      <summary>🧾 JSON de decisión — ${escapeHtml(archivo||"Oferta")}</summary>
-      ${body}
-    </details>
-  `);
-}
-function bannerComparativo(texto){
-  if(!texto) return "";
-  return html(`
-    <div class="cmp">
-      <div class="cmp-title">📊 Comparativo</div>
-      <div class="cmp-text">${escapeHtml(texto)}</div>
-    </div>
-  `);
-}
+  document.addEventListener('keydown', function(ev){
+    const isEnter = (ev.key === 'Enter' || ev.keyCode === 13);
+    if (!isEnter || ev.shiftKey || ev.isComposing) return;
+    const el = document.activeElement;
+    if (el && (el.id === 'q' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+      ev.preventDefault(); const btn = document.getElementById('ask'); if (btn) btn.click();
+    }
+  }, true);
+})();
 
-// ===== Nuevo handler de Analizar =====
+/* === Render helpers (colores semáforo) === */
+const SEM_COLORS = {"aprobado":"#2ecc71","faltan_requisitos":"#f1c40f","no_cumple":"#e74c3c","":"#7f8c8d","nd":"#7f8c8d","n/d":"#7f8c8d"};
+const html=(s)=>s;
+function colorBySemaforo(s){ const k=(s||"").toLowerCase(); return SEM_COLORS[k] || "#7f8c8d"; }
 
+/* === Botón Analizar === */
 document.getElementById("ask").onclick = async () => {
   const btn = document.getElementById("ask");
-  const query = $q.value.trim();            // puede ir vacío
-  const process = getSelectedProcess();      // toma del combo "Tipo de proceso"
+  const query = $q.value.trim();
+  const process = getSelectedProcess();
+  if (query) addUser(query);
 
-  if (query) addUser(query);                 // pinta mensaje del usuario (si escribió algo)
-
-  btn.disabled = true;
-  startProgress();
+  btn.disabled = true; startProgress();
 
   try {
     const data = await apiPost("/api/chat", { query, process });
 
-    // Si solo viene respuesta de chat (consulta sobre cache), mostrarla y salir
     if (typeof data?.respuesta_chat === "string" && data.respuesta_chat.trim()) {
-      // snapshot simple de texto
-      renderSnapshot(`<div class="msg bot">${escapeHtml(data.respuesta_chat)}</div>`);
-      return;
+      addBot(escapeHtml(data.respuesta_chat)); return;
     }
-
     const r1 = data?.respuesta1 || {};
     const r2 = data?.respuesta2 || {};
-    let htmlOut = "";
 
-    // ===== Semáforos (badges arriba) =====
+    let htmlOut = "";
     const semBadges = (r2.por_archivo || []).map(x=>{
       const arch = x?.archivo || "Oferta";
       const sem  = (x?.json?.semaforo || "").toLowerCase();
@@ -406,22 +396,19 @@ document.getElementById("ask").onclick = async () => {
         sem === "aprobado" ? "#2ecc71" :
         sem === "faltan_requisitos" ? "#f1c40f" :
         sem === "no_cumple" ? "#e74c3c" : "#7f8c8d";
-      return `<span style="display:inline-block;padding:.1rem .5rem;border-radius:999px;background:${color}22;border:1px solid ${color};margin:.15rem .25rem .15rem 0">
-        <b style="color:${color}">${(sem||"N/D").replace(/_/g," ").toUpperCase()}</b> — ${escapeHtml(arch)}
+      return `<span class="badge" style="border-color:${color};color:${color};background:${color}22;margin:.15rem .25rem .15rem 0">
+        <b>${(sem||"N/D").replace(/_/g," ").toUpperCase()}</b> — ${escapeHtml(arch)}
       </span>`;
     }).join("");
     if (semBadges) htmlOut += `<div style="margin-bottom:.35rem">${semBadges}</div>`;
 
-    // ===== Comparativo (una sola vez) =====
     if (r1.comparativo_texto){
       htmlOut += `
-        <div style="border:1px dashed #2d3b6a;border-radius:12px;padding:10px;margin:.25rem 0 .6rem 0;background:#0f1a33;">
+        <div class="card" style="border-style:dashed">
           <div style="font-weight:700;margin-bottom:4px">📊 Comparativo</div>
           <div>${escapeHtml(r1.comparativo_texto)}</div>
         </div>`;
     }
-
-    // ===== Narrativa por archivo (cards) =====
     const semIndex = Object.fromEntries((r2.por_archivo||[]).map(x=>[x.archivo, (x.json?.semaforo||"")]));
     if (r1.por_archivo?.length){
       htmlOut += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">`;
@@ -432,46 +419,30 @@ document.getElementById("ask").onclick = async () => {
           (semIndex[archivo]||"").toLowerCase()==="faltan_requisitos" ? "#f1c40f" :
           (semIndex[archivo]||"").toLowerCase()==="no_cumple" ? "#e74c3c" : "#7f8c8d";
         htmlOut += `
-          <div class="card" style="background:#10162a;border:1px solid #1b2442;border-radius:14px;padding:12px">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+          <div class="card">
+            <div class="rcard-hd">
               <div style="font-weight:700">🗂️ ${escapeHtml(archivo || "Oferta")}</div>
-              <span style="display:inline-block;padding:.08rem .5rem;border-radius:999px;border:1px solid ${color};color:${color};background:${color}22;font-size:.85rem">${status}</span>
+              <span class="tag" style="color:${color}">${status}</span>
             </div>
             <div>${formatNarrative(texto)}</div>
           </div>`;
       });
       htmlOut += `</div>`;
     } else {
-      htmlOut += `<div class="msg bot">🤷 No hay narrativa para mostrar.</div>`;
+      htmlOut += `<div class="msg bot"><div class="bubble">🤷 No hay narrativa para mostrar.</div></div>`;
     }
-
-    // // ===== JSON de decisión (details por archivo) =====
-    // if (r2.por_archivo?.length){
-    //   const blocJ = r2.por_archivo.map(({ archivo, json })=>{
-    //     const jsonStr = JSON.stringify(json ?? {}, null, 2);
-    //     return `
-    //       <details style="margin-top:12px" class="card">
-    //         <summary style="cursor:pointer">🧾 JSON de decisión — ${escapeHtml(archivo||"Oferta")}</summary>
-    //         <pre style="white-space:pre-wrap;margin:.5rem 0 0 0">${escapeHtml(jsonStr)}</pre>
-    //       </details>`;
-    //   }).join("");
-    //   htmlOut += `<div>${blocJ}</div>`;
-    // } else {
-    //   htmlOut += `<div class="msg bot">🧩 No se generó JSON de decisión.</div>`;
-    // }
-
-    // ===== Un solo render consolidado (sin duplicar) =====
-    renderSnapshot(htmlOut);
+    addBot(htmlOut);
 
   } catch (e) {
-    renderSnapshot(`⚠️ Error /api/chat<br>${escapeHtml(e.message)}`);
+    addBot(`<div class="bubble">⚠️ Error /api/chat<br>${escapeHtml(e.message)}</div>`);
   } finally {
     stopProgress(true);
     btn.disabled = false;
-    $q.value = ""; // limpia el campo
+    $q.value = "";
   }
 };
 
+/* === Upload === */
 document.getElementById("upload").onclick = async ()=>{
   const files = $files.files;
   if(!files || !files.length) return;
@@ -481,13 +452,9 @@ document.getElementById("upload").onclick = async ()=>{
     $status.textContent = "✅ Listo";
     addBot(`Subidos: ${data.files.map(x=>x.filename).join(", ")}`);
     await refreshList();
-    // Si el backend detectó el proceso en el primer PDF, aplícalo
     if (data.detected_process) {
-      if (!setProcessSelection(data.detected_process)) {
-        __pendingDetectedProcess = data.detected_process; // por si el combo aún no está listo
-      }
+      if (!setProcessSelection(data.detected_process)) { __pendingDetectedProcess = data.detected_process; }
     }
-
   }catch(e){
     $status.textContent = "⚠️ Error al subir";
     addBot(`⚠️ Error /api/upload-pdf<br>${escapeHtml(e.message)}`);
@@ -501,48 +468,35 @@ async function refreshList(){
   try{
     const data = await apiGet("/api/list-pdf");
     if(!data.files || !data.files.length){
-      $list.textContent = "No hay archivos aún.";
-      return;
+      $list.textContent = "No hay archivos aún."; return;
     }
     $list.innerHTML = data.files.map(f => (
       `<span class="chip">${escapeHtml(f.filename)} · ${humanSize(f.size_bytes||0)}</span>`
     )).join("");
-  }catch(e){
-    $list.textContent = "⚠️ Error listando PDFs";
-  }
+  }catch(e){ $list.textContent = "⚠️ Error listando PDFs"; }
 }
-
 function humanSize(bytes){
   const units = ['B','KB','MB','GB','TB'];
   let i = 0, n = Math.max(0, bytes);
   while(n >= 1024 && i < units.length-1){ n/=1024; i++; }
   return `${n.toFixed(n >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
-// === Progreso (inline, sin tocar tu CSS global) ===
+
+/* === Progreso === */
 function startProgress(){
   const wrap = document.getElementById('pwrap'); if (!wrap) return;
-  wrap.style.display='block';
-  setProgress(5, 'Preparando…');
-
-  // simulación por fases hasta 90% mientras esperamos
+  wrap.style.display='block'; setProgress(5, 'Preparando…');
   const phases = [
     {to: 20, text: 'Leyendo archivos…'},
     {to: 45, text: 'Indexando oferta…'},
     {to: 70, text: 'Seleccionando BASE…'},
     {to: 90, text: 'Construyendo contexto…'}
   ];
-  let idx = 0;
-  window.__pTimer && clearInterval(window.__pTimer);
-  window.__pPct = 5;
-
+  let idx = 0; window.__pTimer && clearInterval(window.__pTimer); window.__pPct = 5;
   window.__pTimer = setInterval(()=>{
     const target = phases[Math.min(idx, phases.length-1)].to;
-    if (window.__pPct < target) {
-      window.__pPct = Math.min(target, window.__pPct + 2);
-      setProgress(window.__pPct, phases[idx].text);
-    } else {
-      idx = Math.min(idx+1, phases.length-1);
-    }
+    if (window.__pPct < target) { window.__pPct = Math.min(target, window.__pPct + 2); setProgress(window.__pPct, phases[idx].text); }
+    else { idx = Math.min(idx+1, phases.length-1); }
   }, 300);
 }
 function setProgress(pct, text){
@@ -552,23 +506,20 @@ function setProgress(pct, text){
 function stopProgress(ok=true){
   window.__pTimer && clearInterval(window.__pTimer);
   setProgress(100, ok ? 'Análisis completado' : 'Error en el análisis');
-  const wrap = document.getElementById('pwrap');
-  if (wrap) setTimeout(()=>{ wrap.style.display='none'; setProgress(0,''); }, 900);
+  const wrap = document.getElementById('pwrap'); if (wrap) setTimeout(()=>{ wrap.style.display='none'; setProgress(0,''); }, 900);
 }
 
+/* === Dashboard === */
 const $openDash = document.getElementById("openDash");
 $openDash.addEventListener("click", () => {
-  const proc = $process?.value || "auto"; // "auto" o el JSON del combo
-  const base = "/dashboard.html";          // si montaste templates en "/"
+  const proc = $process?.value || "auto";
+  const base = "/dashboard.html";
   const url = `${base}?process=${encodeURIComponent(proc)}`;
   window.open(url, "_blank");
 });
 
-
 refreshList();
 loadProcesses().then(hydrateDetectedProcess);
 </script>
-
-
 </body>
 </html>

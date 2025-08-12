@@ -1,0 +1,100 @@
+[
+  {
+    "secciones": {
+      "legales": [],
+      "tecnicas": [],
+      "economicas": [
+        "el “Formulario de la Oferta” o “Formulario de compromiso”, la debe incluir en el"
+      ],
+      "otros": []
+    },
+    "procesoId": "BS-SIE-2025-001",
+    "referencia": {
+      "costo": 2000000000,
+      "plazo_dias": 90
+    },
+    "requisitos": [
+      {
+        "id": "R-001",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "Para iniciar con la información sobre los “Requisitos mínimos”, se debe pulsar el botón",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-002",
+        "categoria": "Legal",
+        "sub": null,
+        "texto": "cuales se deben llenar de acuerdo a las necesidades de la entidad contratante y en",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-003",
+        "categoria": "Economica",
+        "sub": "Precio",
+        "texto": "Costo ofertado declarado",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      }
+    ],
+    "oferentes": [
+      {
+        "id": "O1",
+        "nombre": "EDIFIKA S.A.",
+        "costo": 2000000000,
+        "plazo_dias": 90,
+        "cumplimientos": [
+          {
+            "reqId": "R-001",
+            "estado": "CUMPLE",
+            "evidencia": null
+          },
+          {
+            "reqId": "R-002",
+            "estado": "CUMPLE",
+            "evidencia": null
+          },
+          {
+            "reqId": "R-003",
+            "estado": "CUMPLE",
+            "evidencia": "Monto ofertado: USD 20,000,000.00"
+          }
+        ],
+        "riesgos": [
+          {
+            "nivel": "ALTO",
+            "clausula": null,
+            "pagina": null,
+            "descripcion": "Riesgo por penalizaciones técnicas hasta el 10% de la partida afectada."
+          }
+        ]
+      }
+    ],
+    "riesgos": [
+      {
+        "tipo": "economico",
+        "detalle": "Riesgo por penalizaciones técnicas hasta el 10% de la partida afectada.",
+        "critico": true
+      }
+    ],
+    "diferencias_clave": [],
+    "recomendaciones": [],
+    "ruc_validacion": {
+      "ruc": "0992881364001",
+      "nombre": "MURANO - IT TECNOLOGIA Y SOLUCIONES INTEGRALES S.A.",
+      "habilitado": true,
+      "notas": "OK"
+    },
+    "semaforo": "aprobado",
+    "pesosCategoria": {
+      "Legal": 0.4,
+      "Tecnica": 0.4,
+      "Economica": 0.2
+    }
+  }
+]

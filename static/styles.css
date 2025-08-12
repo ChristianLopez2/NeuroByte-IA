@@ -272,3 +272,9 @@ ul.bullets-compact li{ margin:.2rem 0; color:#d7e4ff; }
 
 /* Chat-box mejora lectura */
 .chat-box .card, .chat-box .cmp, .chat-box details.det { margin:8px 0; }
+
+.tabla-scroll{
+  overflow-x: auto;
+  /* opcional: para evitar que el contenedor "salte" verticalmente */
+  max-width: 100%;
+}
