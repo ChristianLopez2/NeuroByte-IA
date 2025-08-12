@@ -96,5 +96,110 @@
       "Tecnica": 0.4,
       "Economica": 0.2
     }
+  },
+  {
+    "secciones": {
+      "legales": [],
+      "tecnicas": [],
+      "economicas": [
+        "continuación, son las condiciones mínimas que deberá cumplir la oferta.",
+        "el “Formulario de la Oferta” o “Formulario de compromiso”, la debe incluir en el"
+      ],
+      "otros": []
+    },
+    "procesoId": "BS-SIE-2025-002",
+    "referencia": {
+      "costo": 8797.5,
+      "plazo_dias": 30
+    },
+    "requisitos": [
+      {
+        "id": "R-001",
+        "categoria": "Economica",
+        "sub": "Precio",
+        "texto": "Costo ofertado declarado",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-002",
+        "categoria": "Economica",
+        "sub": null,
+        "texto": "continuación, son las condiciones mínimas que deberá cumplir la oferta.",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-003",
+        "categoria": "Economica",
+        "sub": null,
+        "texto": "el “Formulario de la Oferta” o “Formulario de compromiso”, la debe incluir en el",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      },
+      {
+        "id": "R-COSTO",
+        "categoria": "Economica",
+        "sub": "Precio",
+        "texto": "Costo ofertado declarado",
+        "peso": 1.0,
+        "clausula": null,
+        "pagina": null
+      }
+    ],
+    "oferentes": [
+      {
+        "id": "O1",
+        "nombre": "CODE3ECUADOR - 44890056",
+        "costo": 8797.5,
+        "plazo_dias": 30,
+        "cumplimientos": [
+          {
+            "reqId": "R-001",
+            "estado": "CUMPLE",
+            "evidencia": "Total $8,797.50"
+          },
+          {
+            "reqId": "R-COSTO",
+            "estado": "CUMPLE",
+            "evidencia": "Costo ofertado declarado"
+          }
+        ],
+        "riesgos": [
+          {
+            "nivel": "BAJO",
+            "clausula": null,
+            "pagina": null,
+            "descripcion": "Falta de especificación de costos unitarios en la oferta."
+          }
+        ]
+      }
+    ],
+    "riesgos": [
+      {
+        "tipo": "economico",
+        "detalle": "Falta de especificación de costos unitarios en la oferta.",
+        "critico": false
+      }
+    ],
+    "diferencias_clave": [],
+    "recomendaciones": [
+      "Incluir el costo unitario de cada ítem en la oferta para mayor claridad."
+    ],
+    "ruc_validacion": {
+      "ruc": "1726739152001",
+      "nombre": "ORDO¿Z MARTINEZ SABRINA SILOE",
+      "habilitado": true,
+      "notas": "OK"
+    },
+    "semaforo": "aprobado",
+    "pesosCategoria": {
+      "Legal": 0.4,
+      "Tecnica": 0.4,
+      "Economica": 0.2
+    }
   }
 ]

@@ -115,6 +115,12 @@ class Settings:
 
 S = Settings()
 
+# --- Detectar Render y mover UPLOAD_DIR a /tmp ---
+IS_RENDER = bool(os.getenv("RENDER") or os.getenv("RENDER_EXTERNAL_URL") or os.getenv("RENDER_SERVICE_ID"))
+if IS_RENDER:
+    S.UPLOAD_DIR = Path("/tmp/uploads/pdf")
+S.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
 # ===== Caches / estado =====
 ANALYSIS_BY_RUC: Dict[str, Dict[str, Any]] = {}    # {ruc: {"r1_items":[], "r2_items":[], "comparativos":[]}}
 UPLOAD_RUC_INDEX: Dict[str, Optional[str]] = {}    # {filename.pdf: ruc}
@@ -222,6 +228,41 @@ app.add_middleware(
 S.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 S.KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
 S.VECTOR_DIR.mkdir(parents=True, exist_ok=True)
+# ========== LIMPIEZA AUTOMÁTICA DE UPLOADS ==========
+import time
+
+# Configurable por ENV (opcional)
+UPLOAD_MAX_AGE_HOURS = float(os.getenv("UPLOAD_MAX_AGE_HOURS", "6"))   # edad máxima antes de borrar
+CLEANUP_INTERVAL_MIN = float(os.getenv("CLEANUP_INTERVAL_MIN", "30"))  # cada cuánto correr
+
+def _delete_old_files(upload_dir: Path, max_age_hours: float = 6.0) -> int:
+    """Borra archivos más viejos que max_age_hours. Devuelve cuántos borró."""
+    cutoff = time.time() - max_age_hours * 3600
+    removed = 0
+    try:
+        for p in upload_dir.rglob("*"):
+            if p.is_file():
+                try:
+                    if p.stat().st_mtime < cutoff:
+                        p.unlink()
+                        removed += 1
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return removed
+
+async def _periodic_uploads_cleanup():
+    """Tarea en background que limpia periódicamente."""
+    while True:
+        _delete_old_files(S.UPLOAD_DIR, max_age_hours=UPLOAD_MAX_AGE_HOURS)
+        await asyncio.sleep(int(CLEANUP_INTERVAL_MIN * 60))
+
+@app.on_event("startup")
+async def _start_cleanup_task():
+    # Lanza la tarea de limpieza en segundo plano
+    asyncio.create_task(_periodic_uploads_cleanup())
+# ========== /LIMPIEZA AUTOMÁTICA ==========
 
 # =========================
 # Utilidades PDF / OCR
@@ -1208,6 +1249,23 @@ def sync_uploads_index() -> dict:
 async def api_sync_uploads():
     info = sync_uploads_index()
     return {"ok": True, "synced": info}
+# ========== ENDPOINT DE LIMPIEZA (PROTEGIDO) ==========
+from fastapi import Header
+
+CRON_TOKEN = os.getenv("CRON_TOKEN", "")  # ponlo en Environment Variables de Render
+
+@app.post("/admin/cleanup")
+def admin_cleanup(x_cron_token: str = Header(default="")):
+    if not CRON_TOKEN or x_cron_token != CRON_TOKEN:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    removed = _delete_old_files(S.UPLOAD_DIR, max_age_hours=UPLOAD_MAX_AGE_HOURS)
+    # De paso sincronizamos índice de vector si usas esa función
+    try:
+        sync_uploads_index()
+    except Exception:
+        pass
+    return {"ok": True, "removed": removed}
+# ========== /ENDPOINT DE LIMPIEZA ==========
 
 # =========================
 # RAG selección BASE
