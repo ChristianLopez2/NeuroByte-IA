@@ -1,23 +1,14 @@
 fastapi
-uvicorn[standard]
+uvicorn
 pydantic
 starlette
-python-multipart
 
-langchain>=0.2.11
-langchain-openai>=0.1.23
-langchain-community>=0.2.11
-chromadb>=0.5.4
+langchain
+langchain-openai
+chromadb
 tiktoken
 openai
 
 httpx
 PyMuPDF
 Pillow
-pytesseract
-jinja2
-pymupdf
-pillow
-numpy
-easyocr
-pyyaml

@@ -104,7 +104,7 @@ class Settings:
 
     ENABLE_OCR = os.getenv("ENABLE_OCR", "true").lower() != "false"
     FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "*")
-
+    PIP_NO_CACHE_DIR=1
     # SRI
     SRI_RUC_URL = (
         "https://srienlinea.sri.gob.ec/"
