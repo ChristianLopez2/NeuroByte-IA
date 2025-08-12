@@ -32,6 +32,10 @@
       {
         "archivo": "15_3_ANEXO-1-Modelo-de-garantia-tecnica_compra_triturados-signed",
         "texto": "Oferta: 15_3_ANEXO-1-Modelo-de-garantia-tecnica_compra_triturados-signed\nReferencia BASE — costo: N/D, plazo: N/D días\nOferente: VIPESA CONSTRUCCIONES CIA.LTDA. — costo: N/D, plazo: 30 días\nRUC 0190373479001 — HABILITADO (Razón social: VIPESA CONSTRUCCIONES CIA.LTDA., Estado: ACTIVO)\nSemáforo: APROBADO\nCumplimientos relevantes:\n- Cumple con toda la normativa general, sectorial y especial (Evidencia: Declaración en la oferta, doc base: FORMULARIO-UNICO-DE-LA-OFERTA.-LICITACION-DE-SEGUROS)\n- Garantiza que los bienes a proveerse son nuevos y de buena calidad (Evidencia: Garantía técnica presentada, doc base: 15_3_ANEXO-1-Modelo-de-garantia-tecnica_compra_triturados-signed)\n- Compromiso de reponer bienes en mal estado (Evidencia: Cláusula de reposición, doc base: 15_3_ANEXO-1-Modelo-de-garantia-tecnica_compra_triturados-signed)\nBrechas detectadas y acciones:\n- No se presenta costo (Evidencia no encontrada, ACCIÓN CONCRETA: Incluir costo en la oferta, doc base: N/D)\nRiesgos del oferente:\n- Bajo: No se especifican costos, lo que puede afectar la evaluación (cláusula, pág: N/D)\nPesos categoría: Legal 0.4, Técnica 0.4, Económica 0.2"
+      },
+      {
+        "archivo": "CODE3ECUADOR - 44890056",
+        "texto": "Oferta: CODE3ECUADOR - 44890056\nReferencia BASE — costo: 8797.50, plazo: 30 días\nOferente: CODE3ECUADOR - 44890056 — costo: 8797.50, plazo: 30 días\nRUC 1726739152001 — HABILITADO (Razón social: ORDO¿Z MARTINEZ SABRINA SILOE, Estado: ACTIVO)\nSemáforo: APROBADO\nCumplimientos relevantes:\n- Cumple con la entrega en 30 días.\n- Garantía de 5 años en todos los equipos.\n- Pago del 100% contra entrega.\nBrechas detectadas y acciones:\n- No se detectaron brechas significativas en la oferta presentada.\nRiesgos del oferente:\n- No se reportan riesgos significativos, la oferta cumple con los requisitos establecidos.\nPesos categoría: Legal 0.4, Técnica 0.4, Económica 0.2"
       }
     ],
     "comparativo_texto": "La oferta de EJEMPLO DE CONTRATO - RETO 1 cumple con todos los requisitos relevantes. No se identificaron diferencias significativas en plazos o montos. | La oferta de 5_Proforma_0190373479001 cumple con todos los requisitos relevantes y está habilitada. No se presentan diferencias significativas en plazos o montos. | La oferta de EJEMPLO DE CONTRATO - RETO 1 cumple con todos los requisitos relevantes. No se encontraron diferencias significativas en plazos o montos con respecto a las expectativas. | La oferta de 5_Proforma_0190373479001 cumple con todos los requisitos establecidos, destacando su habilitación y cumplimiento de compromisos. No se presentan diferencias significativas en costo o plazo. | El cumplimiento de la oferta es deficiente, ya que no se presenta evidencia de aceptación de compromisos ni de reserva de información. No se detectan diferencias relevantes en costo o plazo. | La oferta de 44890047 cumple con los requisitos legales y técnicos, aunque presenta brechas en la documentación de requisitos mínimos. El plazo de 30 días es competitivo. | El cumplimiento más destacado es la aceptación de los compromisos establecidos. Sin embargo, la oferta no presenta un plazo "
@@ -742,6 +746,91 @@
           "ruc_validacion": {
             "ruc": "0190373479001",
             "nombre": "VIPESA CONSTRUCCIONES CIA.LTDA.",
+            "habilitado": true,
+            "notas": "OK"
+          },
+          "semaforo": "aprobado",
+          "pesosCategoria": {
+            "Legal": 0.4,
+            "Tecnica": 0.4,
+            "Economica": 0.2
+          }
+        }
+      },
+      {
+        "archivo": "CODE3ECUADOR - 44890056",
+        "destino": {
+          "familia": "bienes_servicios",
+          "procedimiento": "Subasta Inversa Electrónica",
+          "label": "bienes_servicios — Subasta Inversa Electrónica"
+        },
+        "json": {
+          "secciones": {
+            "legales": [],
+            "tecnicas": [],
+            "economicas": [
+              "el “Formulario de la Oferta” o “Formulario de compromiso”, la debe incluir en el"
+            ],
+            "otros": []
+          },
+          "procesoId": null,
+          "referencia": {
+            "costo": 8797.5,
+            "plazo_dias": 30
+          },
+          "requisitos": [
+            {
+              "id": "R-001",
+              "categoria": "Economica",
+              "sub": "Precio",
+              "texto": "Costo ofertado declarado",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            },
+            {
+              "id": "R-COSTO",
+              "categoria": "Economica",
+              "sub": "Precio",
+              "texto": "Costo ofertado declarado",
+              "peso": 1.0,
+              "clausula": null,
+              "pagina": null
+            }
+          ],
+          "oferentes": [
+            {
+              "id": "O1",
+              "nombre": "CODE3ECUADOR - 44890056",
+              "costo": 8797.5,
+              "plazo_dias": 30,
+              "cumplimientos": [
+                {
+                  "reqId": "R-001",
+                  "estado": "CUMPLE",
+                  "evidencia": "Total $8,797.50"
+                },
+                {
+                  "reqId": "R-COSTO",
+                  "estado": "CUMPLE",
+                  "evidencia": "Total $8,797.50"
+                }
+              ],
+              "riesgos": []
+            }
+          ],
+          "riesgos": [
+            {
+              "tipo": "economico",
+              "detalle": "Cumple con el costo ofertado sin discrepancias.",
+              "critico": false
+            }
+          ],
+          "diferencias_clave": [],
+          "recomendaciones": [],
+          "ruc_validacion": {
+            "ruc": "1726739152001",
+            "nombre": "ORDO¿Z MARTINEZ SABRINA SILOE",
             "habilitado": true,
             "notas": "OK"
           },

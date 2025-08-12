@@ -14,3 +14,4 @@ openai
 httpx
 PyMuPDF
 Pillow
+pytesseract
