@@ -15,4 +15,5 @@ httpx
 
 PyMuPDF
 Pillow
+jinja2
 pytesseract
