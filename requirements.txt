@@ -5,6 +5,8 @@ starlette
 
 langchain
 langchain-openai
+langchain-community
+langchain-text-splitters
 chromadb
 tiktoken
 openai
