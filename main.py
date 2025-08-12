@@ -42,6 +42,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+from datetime import datetime
 
 # LangChain / OpenAI / Vector
 from langchain_openai import ChatOpenAI
@@ -1684,8 +1685,6 @@ def list_tipos_licitacion():
 # Static (front)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/", StaticFiles(directory="templates", html=True), name="front")
-
-from datetime import datetime
 
 DEST_DIR = S.BASE_DIR / "static" / "tipos"
 DEST_DIR.mkdir(parents=True, exist_ok=True)

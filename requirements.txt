@@ -12,7 +12,12 @@ tiktoken
 openai
 
 httpx
-
 PyMuPDF
 Pillow
 pytesseract
+jinja2
+pymupdf
+pillow
+numpy
+easyocr
+pyyaml
